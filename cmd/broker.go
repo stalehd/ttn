@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/TheThingsNetwork/ttn/core"
 	"github.com/TheThingsNetwork/ttn/core/adapters/http"
-	"github.com/TheThingsNetwork/ttn/core/adapters/http/handlers"
 	"github.com/TheThingsNetwork/ttn/core/components/broker"
 	"github.com/TheThingsNetwork/ttn/utils/stats"
 	"github.com/apex/log"
@@ -22,139 +21,122 @@ import (
 var brokerCmd = &cobra.Command{
 	Use:   "broker",
 	Short: "The Things Network broker",
-	Long: `
-The broker is responsible for finding the right handler for uplink packets it
-receives from routers. This means that handlers have to register applications
-and personalized devices (with their network session keys) with the router.
+	Long: `ttn broker starts the Broker component of The Things Network.
+
+The Broker is responsible for finding the right handler for uplink packets it
+receives from Routers. Handlers have register Applications and personalized
+devices (with their network session keys) with the Broker.
 	`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		var statusServer string
 		if viper.GetInt("broker.status-port") > 0 {
-			statusServer = fmt.Sprintf("%s:%d", viper.GetString("broker.status-bind-address"), viper.GetInt("broker.status-port"))
+			statusServer = fmt.Sprintf("%s:%d", viper.GetString("broker.status-address"), viper.GetInt("broker.status-port"))
 			stats.Initialize()
 		} else {
 			statusServer = "disabled"
 			stats.Enabled = false
 		}
 		ctx.WithFields(log.Fields{
-			"database":      viper.GetString("broker.database"),
-			"status-server": statusServer,
-			"uplink":        fmt.Sprintf("%s:%d", viper.GetString("broker.uplink-bind-address"), viper.GetInt("broker.uplink-port")),
-			"downlink":      fmt.Sprintf("%s:%d", viper.GetString("broker.downlink-bind-address"), viper.GetInt("broker.downlink-port")),
+			"devices database":      viper.GetString("broker.devices_database"),
+			"applications database": viper.GetString("broker.applications_database"),
+			"status-server":         statusServer,
+			"main-server":           fmt.Sprintf("%s:%d", viper.GetString("broker.server-address"), viper.GetInt("broker.server-port")),
 		}).Info("Using Configuration")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx.Info("Starting")
 
-		// Instantiate all components
-		rtrNet := fmt.Sprintf("%s:%d", viper.GetString("broker.uplink-bind-address"), viper.GetInt("broker.uplink-port"))
-		rtrAdapter, err := http.NewAdapter(rtrNet, nil, ctx.WithField("adapter", "router-http"))
-		if err != nil {
-			ctx.WithError(err).Fatal("Could not start Routers Adapter")
-		}
-		rtrAdapter.Bind(handlers.Collect{})
+		// Status & Health
+		statusAddr := fmt.Sprintf("%s:%d", viper.GetString("broker.status-address"), viper.GetInt("broker.status-port"))
+		statusAdapter := http.New(
+			http.Components{Ctx: ctx.WithField("adapter", "handler-status")},
+			http.Options{NetAddr: statusAddr, Timeout: time.Second * 5},
+		)
+		statusAdapter.Bind(http.Healthz{})
+		statusAdapter.Bind(http.StatusPage{})
 
-		hdlNet := fmt.Sprintf("%s:%d", viper.GetString("broker.downlink-bind-address"), viper.GetInt("broker.downlink-port"))
-		hdlAdapter, err := http.NewAdapter(hdlNet, nil, ctx.WithField("adapter", "handler-http"))
-		if err != nil {
-			ctx.WithError(err).Fatal("Could not start Handlers Adapter")
-		}
-		hdlAdapter.Bind(handlers.Collect{})
-		hdlAdapter.Bind(handlers.PubSub{})
-		hdlAdapter.Bind(handlers.Applications{})
-
-		if viper.GetInt("broker.status-port") > 0 {
-			statusNet := fmt.Sprintf("%s:%d", viper.GetString("broker.status-bind-address"), viper.GetInt("broker.status-port"))
-			statusAdapter, err := http.NewAdapter(statusNet, nil, ctx.WithField("adapter", "status-http"))
-			if err != nil {
-				ctx.WithError(err).Fatal("Could not start Status Adapter")
-			}
-			statusAdapter.Bind(handlers.StatusPage{})
-			statusAdapter.Bind(handlers.Healthz{})
-		}
-		// Instantiate Storage
-
-		var db broker.NetworkController
-
-		dbString := viper.GetString("broker.database")
+		// Storage
+		var dbDev broker.NetworkController
+		devDBString := viper.GetString("broker.devices_database")
 		switch {
-		case strings.HasPrefix(dbString, "boltdb:"):
+		case strings.HasPrefix(devDBString, "boltdb:"):
 
-			dbPath, err := filepath.Abs(dbString[7:])
+			dbPath, err := filepath.Abs(devDBString[7:])
 			if err != nil {
-				ctx.WithError(err).Fatal("Invalid database path")
+				ctx.WithError(err).Fatal("Invalid devices database path")
 			}
 
-			db, err = broker.NewNetworkController(dbPath)
+			dbDev, err = broker.NewNetworkController(dbPath)
 			if err != nil {
 				ctx.WithError(err).Fatal("Could not create local storage")
 			}
 
-			ctx.WithField("database", dbPath).Info("Using local storage")
+			ctx.WithField("devices database", dbPath).Info("Using local storage")
 		default:
-			ctx.WithError(fmt.Errorf("Invalid database string. Format: \"boltdb:/path/to.db\".")).Fatal("Could not instantiate local storage")
+			ctx.WithError(fmt.Errorf("Invalid devices database string. Format: \"boltdb:/path/to.db\".")).Fatal("Could not instantiate local storage")
 		}
 
-		broker := broker.New(db, ctx)
+		var dbApp broker.AppStorage
+		appDBString := viper.GetString("broker.applications_database")
+		switch {
+		case strings.HasPrefix(appDBString, "boltdb:"):
 
-		// Bring the service to life
-
-		// Listen to uplink
-		go func() {
-			for {
-				packet, an, err := rtrAdapter.Next()
-				if err != nil {
-					ctx.WithError(err).Error("Could not retrieve uplink")
-					continue
-				}
-				go func(packet []byte, an core.AckNacker) {
-					if err := broker.HandleUp(packet, an, hdlAdapter); err != nil {
-						// We can't do anything with this packet, so we're ignoring it.
-						ctx.WithError(err).Debug("Could not process uplink")
-					}
-				}(packet, an)
+			dbPath, err := filepath.Abs(appDBString[7:])
+			if err != nil {
+				ctx.WithError(err).Fatal("Invalid applications database path")
 			}
-		}()
 
-		// List to handler registrations
-		go func() {
-			for {
-				reg, an, err := hdlAdapter.NextRegistration()
-				if err != nil {
-					ctx.WithError(err).Error("Could not retrieve registration")
-					continue
-				}
-				go func(reg core.Registration, an core.AckNacker) {
-					if err := broker.Register(reg, an); err != nil {
-						// We can't do anything with this registration, so we're ignoring it.
-						ctx.WithError(err).Debug("Could not process registration")
-					}
-				}(reg, an)
+			dbApp, err = broker.NewAppStorage(dbPath)
+			if err != nil {
+				ctx.WithError(err).Fatal("Could not create local storage")
 			}
-		}()
 
-		<-make(chan bool)
+			ctx.WithField("applications database", dbPath).Info("Using local storage")
+		default:
+			ctx.WithError(fmt.Errorf("Invalid applications database string. Format: \"boltdb:/path/to.db\".")).Fatal("Could not instantiate local storage")
+		}
+
+		// Broker
+		broker := broker.New(
+			broker.Components{
+				Ctx:               ctx,
+				NetworkController: dbDev,
+				AppStorage:        dbApp,
+			},
+			broker.Options{
+				NetAddrUp:   fmt.Sprintf("%s:%d", viper.GetString("broker.uplink-address"), viper.GetInt("broker.uplink-port")),
+				NetAddrDown: fmt.Sprintf("%s:%d", viper.GetString("broker.downlink-address"), viper.GetInt("broker.downlink-port")),
+			},
+		)
+
+		// Go
+		if err := broker.Start(); err != nil {
+			ctx.WithError(err).Fatal("Broker has fallen...")
+		}
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(brokerCmd)
 
-	brokerCmd.Flags().String("database", "boltdb:/tmp/ttn_broker.db", "Database connection")
-	viper.BindPFlag("broker.database", brokerCmd.Flags().Lookup("database"))
+	brokerCmd.Flags().String("applications_database", "boltdb:/tmp/ttn_apps_broker.db", "Applications Database connection")
+	viper.BindPFlag("broker.applications_database", brokerCmd.Flags().Lookup("applications_database"))
 
-	brokerCmd.Flags().String("status-bind-address", "localhost", "The IP address to listen for serving status information")
+	brokerCmd.Flags().String("devices_database", "boltdb:/tmp/ttn_devs_broker.db", "Devices Database connection")
+	viper.BindPFlag("broker.devices_database", brokerCmd.Flags().Lookup("devices_database"))
+
+	brokerCmd.Flags().String("status-address", "0.0.0.0", "The IP address to listen for serving status information")
 	brokerCmd.Flags().Int("status-port", 10701, "The port of the status server, use 0 to disable")
-	viper.BindPFlag("broker.status-bind-address", brokerCmd.Flags().Lookup("status-bind-address"))
+	viper.BindPFlag("broker.status-address", brokerCmd.Flags().Lookup("status-address"))
 	viper.BindPFlag("broker.status-port", brokerCmd.Flags().Lookup("status-port"))
 
-	brokerCmd.Flags().String("uplink-bind-address", "", "The IP address to listen for uplink messages from routers")
-	brokerCmd.Flags().Int("uplink-port", 1881, "The port for the uplink")
-	viper.BindPFlag("broker.uplink-bind-address", brokerCmd.Flags().Lookup("uplink-bind-address"))
+	brokerCmd.Flags().String("uplink-address", "0.0.0.0", "The IP address to listen for uplink communication")
+	brokerCmd.Flags().Int("uplink-port", 1881, "The port for uplink communication")
+	viper.BindPFlag("broker.uplink-address", brokerCmd.Flags().Lookup("uplink-address"))
 	viper.BindPFlag("broker.uplink-port", brokerCmd.Flags().Lookup("uplink-port"))
 
-	brokerCmd.Flags().String("downlink-bind-address", "", "The IP address to listen for downlink messages from brokers")
-	brokerCmd.Flags().Int("downlink-port", 1781, "The port for the downlink")
-	viper.BindPFlag("broker.downlink-bind-address", brokerCmd.Flags().Lookup("downlink-bind-address"))
+	brokerCmd.Flags().String("downlink-address", "0.0.0.0", "The IP address to listen for downlink communication")
+	brokerCmd.Flags().Int("downlink-port", 1781, "The port for downlink communication")
+	viper.BindPFlag("broker.downlink-address", brokerCmd.Flags().Lookup("downlink-address"))
 	viper.BindPFlag("broker.downlink-port", brokerCmd.Flags().Lookup("downlink-port"))
 }

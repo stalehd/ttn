@@ -9,17 +9,26 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TheThingsNetwork/ttn/core"
-	. "github.com/TheThingsNetwork/ttn/core/mocks"
-	"github.com/TheThingsNetwork/ttn/utils/errors"
-	. "github.com/TheThingsNetwork/ttn/utils/errors/checks"
-	"github.com/TheThingsNetwork/ttn/utils/pointer"
 	. "github.com/TheThingsNetwork/ttn/utils/testing"
 )
 
-const storageDB = "TestRouterStorage.db"
+const storageDB = "TestBrkStorage.db"
 
-func TestStoreAndLookup(t *testing.T) {
+func CheckEntries(t *testing.T, want []brkEntry, got []brkEntry) {
+	for i, w := range want {
+		if i >= len(got) {
+			Ko(t, "Didn't got enough entries: %v", got)
+		}
+		tmin := w.until.Add(-time.Second)
+		tmax := w.until.Add(time.Second)
+		if !tmin.Before(got[i].until) || !got[i].until.Before(tmax) {
+			Ko(t, "Unexpected expiry time.\nWant: %s\nGot:  %s", w.until, got[i].until)
+		}
+		Check(t, w.BrokerIndex, got[i].BrokerIndex, "Brokers")
+	}
+}
+
+func TestCreateAndRead(t *testing.T) {
 	storageDB := path.Join(os.TempDir(), storageDB)
 
 	defer func() {
@@ -30,253 +39,204 @@ func TestStoreAndLookup(t *testing.T) {
 
 	{
 		Desc(t, "Create a new storage")
-		db, err := NewStorage(storageDB, time.Hour)
+		db, err := NewBrkStorage(storageDB, time.Hour)
 		CheckErrors(t, nil, err)
-		err = db.Close()
+		err = db.done()
 		CheckErrors(t, nil, err)
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Store then lookup a registration")
+		Desc(t, "create then read a device")
 
 		// Build
-		db, _ := NewStorage(storageDB, time.Hour)
-		r := NewMockRRegistration()
+		db, _ := NewBrkStorage(storageDB, time.Hour)
+		entry := brkEntry{
+			DevAddr:     []byte{0, 0, 0, 1},
+			BrokerIndex: 1,
+		}
 
 		// Operate
-		err := db.Store(r)
-		CheckErrors(t, nil, err)
-		gotEntry, err := db.Lookup(r.DevEUI())
+		err := db.create(entry)
+		FatalUnless(t, err)
+		gotbrkEntry, err := db.read(entry.DevAddr)
 
 		// Expectations
-		wantEntry := []entry{
+		wantbrkEntry := []brkEntry{
 			{
-				Recipient: r.RawRecipient(),
-				until:     time.Now().Add(time.Hour),
+				DevAddr:     entry.DevAddr,
+				BrokerIndex: entry.BrokerIndex,
+				until:       time.Now().Add(time.Hour),
 			},
 		}
 
 		// Check
 		CheckErrors(t, nil, err)
-		CheckEntries(t, wantEntry, gotEntry)
-		_ = db.Close()
+		CheckEntries(t, wantbrkEntry, gotbrkEntry)
+		_ = db.done()
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Lookup non-existing entry")
+		Desc(t, "read non-existing brkEntry")
 
 		// Build
-		db, _ := NewStorage(storageDB, time.Hour)
-		devEUI := NewMockRRegistration().DevEUI()
-		devEUI[1] = 14
+		db, _ := NewBrkStorage(storageDB, time.Hour)
+		entry := brkEntry{
+			DevAddr:     []byte{0, 0, 0, 2},
+			BrokerIndex: 1,
+		}
 
 		// Operate
-		gotEntry, err := db.Lookup(devEUI)
+		gotbrkEntry, err := db.read(entry.DevAddr)
 
 		// Checks
-		CheckErrors(t, pointer.String(string(errors.NotFound)), err)
-		CheckEntries(t, nil, gotEntry)
-		_ = db.Close()
+		CheckErrors(t, ErrNotFound, err)
+		CheckEntries(t, nil, gotbrkEntry)
+		_ = db.done()
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Lookup an expired entry")
+		Desc(t, "read an expired brkEntry")
 
 		// Build
-		db, _ := NewStorage(storageDB, time.Millisecond*100)
-		r := NewMockRRegistration()
-		r.OutDevEUI[0] = 12
+		db, _ := NewBrkStorage(storageDB, time.Millisecond*100)
+		entry := brkEntry{
+			DevAddr:     []byte{0, 0, 0, 3},
+			BrokerIndex: 1,
+		}
 
 		// Operate
-		_ = db.Store(r)
+		_ = db.create(entry)
 		<-time.After(time.Millisecond * 200)
-		gotEntry, err := db.Lookup(r.DevEUI())
+		gotbrkEntry, err := db.read(entry.DevAddr)
 
 		// Checks
-		CheckErrors(t, pointer.String(string(errors.NotFound)), err)
-		CheckEntries(t, nil, gotEntry)
-		_ = db.Close()
+		CheckErrors(t, ErrNotFound, err)
+		CheckEntries(t, nil, gotbrkEntry)
+		_ = db.done()
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Store above an expired entry")
+		Desc(t, "create above an expired brkEntry")
 
 		// Build
-		db, _ := NewStorage(storageDB, time.Millisecond*100)
-		r := NewMockRRegistration()
-		r.OutDevEUI[4] = 27
+		db, _ := NewBrkStorage(storageDB, time.Millisecond*100)
+		entry := brkEntry{
+			DevAddr:     []byte{0, 0, 0, 4},
+			BrokerIndex: 1,
+		}
+		entry2 := brkEntry{
+			DevAddr:     []byte{0, 0, 0, 4},
+			BrokerIndex: 12,
+		}
 
 		// Operate
-		_ = db.Store(r)
+		_ = db.create(entry)
 		<-time.After(time.Millisecond * 200)
-		err := db.Store(r)
-		CheckErrors(t, nil, err)
-		gotEntry, err := db.Lookup(r.DevEUI())
+		err := db.create(entry2)
+		FatalUnless(t, err)
+		gotbrkEntry, err := db.read(entry.DevAddr)
 
 		// Expectations
-		wantEntry := []entry{
+		wantbrkEntry := []brkEntry{
 			{
-				Recipient: r.RawRecipient(),
-				until:     time.Now().Add(time.Millisecond * 200),
+				DevAddr:     entry2.DevAddr,
+				BrokerIndex: entry2.BrokerIndex,
+				until:       time.Now().Add(time.Millisecond * 100),
 			},
 		}
 
 		// Checks
 		CheckErrors(t, nil, err)
-		CheckEntries(t, wantEntry, gotEntry)
-		_ = db.Close()
+		CheckEntries(t, wantbrkEntry, gotbrkEntry)
+		_ = db.done()
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Store on a closed database")
+		Desc(t, "create on a closed database")
 
 		// Build
-		db, _ := NewStorage(storageDB, time.Hour)
-		_ = db.Close()
-		r := NewMockRRegistration()
-		r.OutDevEUI[5] = 9
+		db, _ := NewBrkStorage(storageDB, time.Hour)
+		_ = db.done()
+		entry := brkEntry{
+			DevAddr: []byte{0, 0, 0, 5},
+		}
 
 		// Operate
-		err := db.Store(r)
+		err := db.create(entry)
 
 		// Checks
-		CheckErrors(t, pointer.String(string(errors.Operational)), err)
+		CheckErrors(t, ErrOperational, err)
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Lookup on a closed database")
+		Desc(t, "read on a closed database")
 
 		// Build
-		db, _ := NewStorage(storageDB, time.Hour)
-		_ = db.Close()
-		devEUI := NewMockRRegistration().DevEUI()
+		db, _ := NewBrkStorage(storageDB, time.Hour)
+		_ = db.done()
+		devAddr := []byte{0, 0, 0, 1}
 
 		// Operate
-		gotEntry, err := db.Lookup(devEUI)
+		gotbrkEntry, err := db.read(devAddr)
 
 		// Checks
-		CheckErrors(t, pointer.String(string(errors.Operational)), err)
-		CheckEntries(t, nil, gotEntry)
+		CheckErrors(t, ErrOperational, err)
+		CheckEntries(t, nil, gotbrkEntry)
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Store an invalid recipient")
+		Desc(t, "create two entries in a row")
 
 		// Build
-		db, _ := NewStorage(storageDB, time.Hour)
-		r := NewMockRRegistration()
-		r.OutDevEUI[7] = 99
-		r.OutRecipient.(*MockRecipient).Failures["MarshalBinary"] = errors.New(errors.Structural, "Mock Error: MarshalBinary")
+		db, _ := NewBrkStorage(storageDB, time.Hour)
+		entry1 := brkEntry{
+			DevAddr:     []byte{0, 0, 0, 6},
+			BrokerIndex: 14,
+		}
 
-		// Operate & Check
-		err := db.Store(r)
-		CheckErrors(t, pointer.String(string(errors.Structural)), err)
-		gotEntry, err := db.Lookup(r.DevEUI())
-		CheckErrors(t, pointer.String(string(errors.NotFound)), err)
-		CheckEntries(t, nil, gotEntry)
-
-		_ = db.Close()
-	}
-
-	// ------------------
-
-	{
-		Desc(t, "Store two entries in a row")
-
-		// Build
-		db, _ := NewStorage(storageDB, time.Hour)
-		r1 := NewMockRRegistration()
-		r1.OutDevEUI[3] = 42
-		r2 := NewMockRRegistration()
-		r2.OutDevEUI[3] = 42
-		r2.OutRecipient.(*MockRecipient).OutMarshalBinary = []byte("Second recipient")
+		entry2 := brkEntry{
+			DevAddr:     []byte{0, 0, 0, 6},
+			BrokerIndex: 20,
+		}
 
 		// Operate
-		err := db.Store(r1)
-		CheckErrors(t, nil, err)
-		err = db.Store(r2)
-		CheckErrors(t, nil, err)
-		gotEntries, err := db.Lookup(r1.DevEUI())
-		CheckErrors(t, nil, err)
+		err := db.create(entry1)
+		FatalUnless(t, err)
+		err = db.create(entry2)
+		FatalUnless(t, err)
+		gotEntries, err := db.read(entry1.DevAddr)
+		FatalUnless(t, err)
 
 		// Expectations
-		wantEntries := []entry{
+		wantEntries := []brkEntry{
 			{
-				Recipient: r1.RawRecipient(),
-				until:     time.Now().Add(time.Hour),
+				DevAddr:     entry1.DevAddr,
+				BrokerIndex: entry1.BrokerIndex,
+				until:       time.Now().Add(time.Hour),
 			},
 			{
-				Recipient: r2.RawRecipient(),
-				until:     time.Now().Add(time.Hour),
+				DevAddr:     entry2.DevAddr,
+				BrokerIndex: entry2.BrokerIndex,
+				until:       time.Now().Add(time.Hour),
 			},
 		}
 
 		// Check
 		CheckEntries(t, wantEntries, gotEntries)
-		_ = db.Close()
-	}
-}
-
-func TestUpdateAndLookup(t *testing.T) {
-	storageDB := path.Join(os.TempDir(), storageDB)
-
-	defer func() {
-		os.Remove(storageDB)
-	}()
-
-	// ------------------
-
-	{
-		Desc(t, "Store then lookup stats")
-
-		// Build
-		db, _ := NewStorage(storageDB, time.Hour)
-		stats, _ := core.NewSPacket(
-			[]byte{1, 2, 3, 4, 5, 6, 7, 8},
-			core.Metadata{
-				Alti: pointer.Int(14),
-			},
-		)
-
-		// Operate
-		errUpdate := db.UpdateStats(stats)
-		got, errLookup := db.LookupStats(stats.GatewayID())
-
-		// Check
-		CheckErrors(t, nil, errUpdate)
-		CheckErrors(t, nil, errLookup)
-		CheckMetadata(t, stats.Metadata(), got)
-		_ = db.Close()
-	}
-
-	// ------------------
-
-	{
-		Desc(t, "Lookup stats from unknown gateway")
-
-		// Build
-		db, _ := NewStorage(storageDB, time.Hour)
-
-		// Operate
-		got, errLookup := db.LookupStats([]byte{1, 2, 2, 3, 3, 4, 4, 1})
-
-		// Check
-		CheckErrors(t, pointer.String(string(errors.NotFound)), errLookup)
-		CheckMetadata(t, core.Metadata{}, got)
-		_ = db.Close()
+		_ = db.done()
 	}
 }

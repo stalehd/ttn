@@ -11,29 +11,30 @@ import (
 
 	"github.com/TheThingsNetwork/ttn/core"
 	"github.com/TheThingsNetwork/ttn/core/adapters/http"
-	httpHandlers "github.com/TheThingsNetwork/ttn/core/adapters/http/handlers"
 	"github.com/TheThingsNetwork/ttn/core/adapters/udp"
-	udpHandlers "github.com/TheThingsNetwork/ttn/core/adapters/udp/handlers"
 	"github.com/TheThingsNetwork/ttn/core/components/router"
 	"github.com/TheThingsNetwork/ttn/core/dutycycle"
 	"github.com/TheThingsNetwork/ttn/utils/stats"
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
 )
 
 // routerCmd represents the router command
 var routerCmd = &cobra.Command{
 	Use:   "router",
 	Short: "The Things Network router",
-	Long: `The router accepts connections from gateways and forwards uplink packets to one
+	Long: `ttn router starts the Router component of The Things Network.
+
+The Router accepts connections from gateways and forwards uplink packets to one
 or more brokers. The router is also responsible for monitoring gateways,
 collecting statistics from gateways and for enforcing TTN's fair use policy when
 the gateway's duty cycle is (almost) full.`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		var statusServer string
 		if viper.GetInt("router.status-port") > 0 {
-			statusServer = fmt.Sprintf("%s:%d", viper.GetString("router.status-bind-address"), viper.GetInt("router.status-port"))
+			statusServer = fmt.Sprintf("%s:%d", viper.GetString("router.status-address"), viper.GetInt("router.status-port"))
 			stats.Initialize()
 		} else {
 			statusServer = "disabled"
@@ -43,47 +44,27 @@ the gateway's duty cycle is (almost) full.`,
 		ctx.WithFields(log.Fields{
 			"db-brokers":    viper.GetString("router.db_brokers"),
 			"db-gateways":   viper.GetString("router.db_gateways"),
+			"db-duty":       viper.GetString("router.db_duty"),
 			"status-server": statusServer,
-			"uplink":        fmt.Sprintf("%s:%d", viper.GetString("router.uplink-bind-address"), viper.GetInt("router.uplink-port")),
-			"downlink":      fmt.Sprintf("%s:%d", viper.GetString("router.downlink-bind-address"), viper.GetInt("router.downlink-port")),
+			"uplink":        fmt.Sprintf("%s:%d", viper.GetString("router.uplink-address"), viper.GetInt("router.uplink-port")),
+			"downlink":      fmt.Sprintf("%s:%d", viper.GetString("router.downlink-address"), viper.GetInt("router.downlink-port")),
 			"brokers":       viper.GetString("router.brokers"),
 		}).Info("Using Configuration")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx.Info("Starting")
 
-		gtwNet := fmt.Sprintf("%s:%d", viper.GetString("router.uplink-bind-address"), viper.GetInt("router.uplink-port"))
-		gtwAdapter, err := udp.NewAdapter(gtwNet, ctx.WithField("adapter", "gateway-semtech"))
-		if err != nil {
-			ctx.WithError(err).Fatal("Could not start Gateway Adapter")
-		}
-		gtwAdapter.Bind(udpHandlers.Semtech{})
+		// Status & Health
+		statusAddr := fmt.Sprintf("%s:%d", viper.GetString("router.status-address"), viper.GetInt("router.status-port"))
+		statusAdapter := http.New(
+			http.Components{Ctx: ctx.WithField("adapter", "router-status")},
+			http.Options{NetAddr: statusAddr, Timeout: time.Second * 5},
+		)
+		statusAdapter.Bind(http.Healthz{})
+		statusAdapter.Bind(http.StatusPage{})
 
-		var brokers []core.Recipient
-		brokersStr := strings.Split(viper.GetString("router.brokers"), ",")
-		for i := range brokersStr {
-			url := strings.Trim(brokersStr[i], " ")
-			brokers = append(brokers, http.NewRecipient(url, "POST"))
-		}
-
-		brkNet := fmt.Sprintf("%s:%d", viper.GetString("router.downlink-bind-address"), viper.GetInt("router.downlink-port"))
-		brkAdapter, err := http.NewAdapter(brkNet, brokers, ctx.WithField("adapter", "broker-http"))
-		if err != nil {
-			ctx.WithError(err).Fatal("Could not start Broker Adapter")
-		}
-
-		if viper.GetInt("router.status-port") > 0 {
-			statusNet := fmt.Sprintf("%s:%d", viper.GetString("router.status-bind-address"), viper.GetInt("router.status-port"))
-			statusAdapter, err := http.NewAdapter(statusNet, nil, ctx.WithField("adapter", "status-http"))
-			if err != nil {
-				ctx.WithError(err).Fatal("Could not start Status Adapter")
-			}
-			statusAdapter.Bind(httpHandlers.StatusPage{})
-			statusAdapter.Bind(httpHandlers.Healthz{})
-		}
-
-		var db router.Storage
-
+		// In-memory packet storage
+		var db router.BrkStorage
 		dbString := viper.GetString("router.db_brokers")
 		switch {
 		case strings.HasPrefix(dbString, "boltdb:"):
@@ -93,7 +74,7 @@ the gateway's duty cycle is (almost) full.`,
 				ctx.WithError(err).Fatal("Invalid database path")
 			}
 
-			db, err = router.NewStorage(dbPath, time.Hour*8)
+			db, err = router.NewBrkStorage(dbPath, time.Hour*8)
 			if err != nil {
 				ctx.WithError(err).Fatal("Could not create a local storage")
 			}
@@ -103,9 +84,9 @@ the gateway's duty cycle is (almost) full.`,
 			ctx.WithError(fmt.Errorf("Invalid database string. Format: \"boltdb:/path/to.db\".")).Fatal("Could not instantiate local storage")
 		}
 
+		// Duty Manager
 		var dm dutycycle.DutyManager
-
-		dmString := viper.GetString("router.db_gateways")
+		dmString := viper.GetString("router.db_duty")
 		switch {
 		case strings.HasPrefix(dmString, "boltdb:"):
 
@@ -124,45 +105,75 @@ the gateway's duty cycle is (almost) full.`,
 			ctx.WithError(fmt.Errorf("Invalid database string. Format: \"boltdb:/path/to.db\".")).Fatal("Could not instantiate local storage")
 		}
 
-		router := router.New(db, dm, ctx)
+		// Gateways
+		var dg router.GtwStorage
+		dgString := viper.GetString("router.db_gateways")
+		switch {
+		case strings.HasPrefix(dmString, "boltdb:"):
 
-		// Bring the service to life
-
-		// Listen uplink
-		go func() {
-			for {
-				packet, an, err := gtwAdapter.Next()
-				if err != nil {
-					ctx.WithError(err).Warn("Could not get next packet from gateway")
-					continue
-				}
-				go func(packet []byte, an core.AckNacker) {
-					if err := router.HandleUp(packet, an, brkAdapter); err != nil {
-						// We can't do anything with this packet, so we're ignoring it.
-						ctx.WithError(err).Debug("Could not process packet from gateway")
-					}
-				}(packet, an)
+			dgPath, err := filepath.Abs(dgString[7:])
+			if err != nil {
+				ctx.WithError(err).Fatal("Invalid database path")
 			}
-		}()
 
-		// Listen broker registrations
-		go func() {
-			for {
-				reg, an, err := brkAdapter.NextRegistration()
-				if err != nil {
-					ctx.WithError(err).Warn("Could not get next registration from broker")
-					continue
-				}
-				go func(reg core.Registration, an core.AckNacker) {
-					if err := router.Register(reg, an); err != nil {
-						// We can't do anything with this registration, so we're ignoring it.
-						ctx.WithError(err).Debug("Could not process registration from broker")
-					}
-				}(reg, an)
+			dg, err = router.NewGtwStorage(dgPath)
+			if err != nil {
+				ctx.WithError(err).Fatal("Could not create a local storage")
 			}
-		}()
 
-		<-make(chan bool)
+			ctx.WithField("database", dgPath).Info("Using local storage")
+		default:
+			ctx.WithError(fmt.Errorf("Invalid database string. Format: \"boltdb:/path/to.db\".")).Fatal("Could not instantiate local storage")
+		}
+
+		// Broker clients
+		var brokers []core.BrokerClient
+		brokersStr := strings.Split(viper.GetString("router.brokers"), ",")
+		for i := range brokersStr {
+			url := strings.Trim(brokersStr[i], " ")
+			brokerConn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithTimeout(time.Second*15))
+			if err != nil {
+				ctx.WithError(err).Fatal("Could not dial broker")
+			}
+			defer brokerConn.Close()
+			broker := core.NewBrokerClient(brokerConn)
+			brokers = append(brokers, broker)
+		}
+
+		// Router
+		router := router.New(
+			router.Components{
+				Ctx:         ctx,
+				DutyManager: dm,
+				Brokers:     brokers,
+				BrkStorage:  db,
+				GtwStorage:  dg,
+			},
+			router.Options{
+				NetAddr: fmt.Sprintf("%s:%d", viper.GetString("router.downlink-address"), viper.GetInt("router.downlink-port")),
+			},
+		)
+
+		// Gateway Adapter
+		gtwNet := fmt.Sprintf("%s:%d", viper.GetString("router.uplink-address"), viper.GetInt("router.uplink-port"))
+		err := udp.Start(
+			udp.Components{
+				Ctx:    ctx.WithField("adapter", "gateway-semtech"),
+				Router: router,
+			},
+			udp.Options{
+				NetAddr:              gtwNet,
+				MaxReconnectionDelay: 25 * 10000 * time.Millisecond,
+			},
+		)
+		if err != nil {
+			ctx.WithError(err).Fatal("Could not start Gateway Adapter")
+		}
+
+		// Go
+		if err := router.Start(); err != nil {
+			ctx.WithError(err).Fatal("Router has fallen...")
+		}
 	},
 }
 
@@ -175,19 +186,22 @@ func init() {
 	routerCmd.Flags().String("db_gateways", "boltdb:/tmp/ttn_router_gateways.db", "Database connection of managed gateways")
 	viper.BindPFlag("router.db_gateways", routerCmd.Flags().Lookup("db_gateways"))
 
-	routerCmd.Flags().String("status-bind-address", "localhost", "The IP address to listen for serving status information")
+	routerCmd.Flags().String("db_duty", "boltdb:/tmp/ttn_router_duty.db", "Database connection of managed dutycycles")
+	viper.BindPFlag("router.db_duty", routerCmd.Flags().Lookup("db_duty"))
+
+	routerCmd.Flags().String("status-address", "0.0.0.0", "The IP address to listen for serving status information")
 	routerCmd.Flags().Int("status-port", 10700, "The port of the status server, use 0 to disable")
-	viper.BindPFlag("router.status-bind-address", routerCmd.Flags().Lookup("status-bind-address"))
+	viper.BindPFlag("router.status-address", routerCmd.Flags().Lookup("status-address"))
 	viper.BindPFlag("router.status-port", routerCmd.Flags().Lookup("status-port"))
 
-	routerCmd.Flags().String("uplink-bind-address", "", "The IP address to listen for uplink messages from gateways")
-	routerCmd.Flags().Int("uplink-port", 1700, "The UDP port for the uplink")
-	viper.BindPFlag("router.uplink-bind-address", routerCmd.Flags().Lookup("uplink-bind-address"))
+	routerCmd.Flags().String("uplink-address", "0.0.0.0", "The IP address to listen for uplink communication from gateways")
+	routerCmd.Flags().Int("uplink-port", 1700, "The UDP port for uplink communication from gateways")
+	viper.BindPFlag("router.uplink-address", routerCmd.Flags().Lookup("uplink-address"))
 	viper.BindPFlag("router.uplink-port", routerCmd.Flags().Lookup("uplink-port"))
 
-	routerCmd.Flags().String("downlink-bind-address", "", "The IP address to listen for downlink messages from routers")
-	routerCmd.Flags().Int("downlink-port", 1780, "The port for the downlink")
-	viper.BindPFlag("router.downlink-bind-address", routerCmd.Flags().Lookup("downlink-bind-address"))
+	routerCmd.Flags().String("downlink-address", "0.0.0.0", "The IP address to listen for downlink communication")
+	routerCmd.Flags().Int("downlink-port", 1780, "The port for downlink communication")
+	viper.BindPFlag("router.downlink-address", routerCmd.Flags().Lookup("downlink-address"))
 	viper.BindPFlag("router.downlink-port", routerCmd.Flags().Lookup("downlink-port"))
 
 	routerCmd.Flags().String("brokers", ":1881", "Comma-separated list of brokers")

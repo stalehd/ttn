@@ -7,18 +7,14 @@ import (
 	"os"
 	"path"
 	"testing"
+	"time"
 
-	. "github.com/TheThingsNetwork/ttn/core"
-	"github.com/TheThingsNetwork/ttn/utils/errors"
-	. "github.com/TheThingsNetwork/ttn/utils/errors/checks"
-	"github.com/TheThingsNetwork/ttn/utils/pointer"
 	. "github.com/TheThingsNetwork/ttn/utils/testing"
-	"github.com/brocaar/lorawan"
 )
 
 const pktDB = "TestPktStorage.db"
 
-func TestPushPullNormal(t *testing.T) {
+func TestPullSize1(t *testing.T) {
 	var db PktStorage
 	defer func() {
 		os.Remove(path.Join(os.TempDir(), pktDB))
@@ -29,125 +25,181 @@ func TestPushPullNormal(t *testing.T) {
 	{
 		Desc(t, "Create a new storage")
 		var err error
-		db, err = NewPktStorage(path.Join(os.TempDir(), pktDB))
+		db, err = NewPktStorage(path.Join(os.TempDir(), pktDB), 1)
 		CheckErrors(t, nil, err)
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Push and Pull a valid APacket")
-
-		// Build
-		p, _ := NewAPacket(
-			lorawan.EUI64([8]byte{1, 1, 1, 1, 1, 1, 1, 1}),
-			lorawan.EUI64([8]byte{2, 2, 2, 2, 2, 2, 2, 2}),
-			[]byte("TheThingsNetwork"),
-			[]Metadata{},
-		)
-
-		// Operate
-		err := db.Push(p)
-		CheckErrors(t, nil, err)
-		a, err := db.Pull(p.AppEUI(), p.DevEUI())
-
-		// Check
-		CheckErrors(t, nil, err)
-		CheckPackets(t, p, a)
+		Desc(t, "Dequeue an empty area")
+		got, err := db.dequeue([]byte{1, 2}, []byte{3, 4})
+		CheckErrors(t, ErrNotFound, err)
+		Check(t, pktEntry{}, got, "Packet entries")
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Push two packets")
 
-		// Build
-		p1, _ := NewAPacket(
-			lorawan.EUI64([8]byte{1, 1, 1, 1, 1, 1, 1, 1}),
-			lorawan.EUI64([8]byte{2, 2, 2, 2, 2, 2, 2, 2}),
-			[]byte("TheThingsNetwork1"),
-			[]Metadata{},
-		)
-		p2, _ := NewAPacket(
-			lorawan.EUI64([8]byte{1, 1, 1, 1, 1, 1, 1, 1}),
-			lorawan.EUI64([8]byte{2, 2, 2, 2, 2, 2, 2, 2}),
-			[]byte("TheThingsNetwork2"),
-			[]Metadata{},
-		)
-
-		// Operate & Check
-		err := db.Push(p1)
-		CheckErrors(t, nil, err)
-		err = db.Push(p2)
-		CheckErrors(t, nil, err)
-
-		a, err := db.Pull(p1.AppEUI(), p1.DevEUI())
-		CheckErrors(t, nil, err)
-		CheckPackets(t, p1, a)
-
-		a, err = db.Pull(p1.AppEUI(), p1.DevEUI())
-		CheckErrors(t, nil, err)
-		CheckPackets(t, p2, a)
+		Desc(t, "Peek an empty area")
+		got, err := db.peek([]byte{1, 2}, []byte{3, 4})
+		CheckErrors(t, ErrNotFound, err)
+		Check(t, pktEntry{}, got, "Packet entries")
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Pull a non existing entry")
-
-		// Build
-		appEUI := lorawan.EUI64([8]byte{1, 2, 1, 2, 1, 2, 1, 2})
-		devEUI := lorawan.EUI64([8]byte{2, 3, 4, 2, 3, 4, 2, 3})
-
-		// Operate
-		p, err := db.Pull(appEUI, devEUI)
-
-		// Check
-		CheckErrors(t, pointer.String(string(errors.NotFound)), err)
-		CheckPackets(t, nil, p)
+		Desc(t, "Queue / Dequeue an entry")
+		entry := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{14, 42}}
+		err := db.enqueue(entry)
+		FatalUnless(t, err)
+		got, err := db.dequeue(entry.AppEUI, entry.DevEUI)
+		FatalUnless(t, err)
+		Check(t, entry, got, "Packet entries")
+		_, err = db.dequeue(entry.AppEUI, entry.DevEUI)
+		CheckErrors(t, ErrNotFound, err)
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Close the storage")
-		err := db.Close()
+		Desc(t, "Queue / Peek an entry")
+		entry := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{14, 42}}
+		err := db.enqueue(entry)
+		FatalUnless(t, err)
+		got, err := db.peek(entry.AppEUI, entry.DevEUI)
+		FatalUnless(t, err)
+		Check(t, entry, got, "Packet entries")
+		got, err = db.peek(entry.AppEUI, entry.DevEUI)
+		FatalUnless(t, err)
+		Check(t, entry, got, "Packet entries")
+	}
+
+	// ------------------
+
+	{
+		Desc(t, "Queue on an existing entry")
+		entry1 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{14, 42}}
+		entry2 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{1, 2, 3, 4}}
+		err := db.enqueue(entry1)
+		FatalUnless(t, err)
+		err = db.enqueue(entry2)
+		FatalUnless(t, err)
+		got, err := db.dequeue(entry1.AppEUI, entry1.DevEUI)
+		FatalUnless(t, err)
+		Check(t, entry2, got, "Packet entries")
+	}
+
+	// ------------------
+
+	{
+		Desc(t, "Queue / Wait expiry / Dequeue")
+		entry := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now(), Payload: []byte{14, 42}}
+		err := db.enqueue(entry)
+		FatalUnless(t, err)
+		<-time.After(time.Millisecond * 10)
+		_, err = db.dequeue(entry.AppEUI, entry.DevEUI)
+		CheckErrors(t, ErrNotFound, err)
+	}
+
+	// ------------------
+
+	{
+		Desc(t, "Queue / Wait expiry / Peek")
+		entry := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now(), Payload: []byte{14, 42}}
+		err := db.enqueue(entry)
+		FatalUnless(t, err)
+		<-time.After(time.Millisecond * 10)
+		_, err = db.peek(entry.AppEUI, entry.DevEUI)
+		CheckErrors(t, ErrNotFound, err)
+	}
+
+	// ------------------
+
+	{
+		Desc(t, "Close")
+		err := db.done()
+		CheckErrors(t, nil, err)
+	}
+}
+
+func TestPullSize2(t *testing.T) {
+	var db PktStorage
+	defer func() {
+		os.Remove(path.Join(os.TempDir(), pktDB))
+	}()
+
+	// ------------------
+
+	{
+		Desc(t, "Create a new storage")
+		var err error
+		db, err = NewPktStorage(path.Join(os.TempDir(), pktDB), 2)
 		CheckErrors(t, nil, err)
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Push after close")
-
-		// Build
-		p, _ := NewAPacket(
-			lorawan.EUI64([8]byte{1, 1, 1, 1, 1, 1, 1, 1}),
-			lorawan.EUI64([8]byte{2, 2, 2, 2, 2, 2, 2, 2}),
-			[]byte("TheThingsNetwork"),
-			[]Metadata{},
-		)
-
-		// Operate
-		err := db.Push(p)
-
-		// Check
-		CheckErrors(t, pointer.String(string(errors.Operational)), err)
+		Desc(t, "Queue two, then Dequeue two")
+		entry1 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{42}}
+		entry2 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{14}}
+		err := db.enqueue(entry1)
+		FatalUnless(t, err)
+		err = db.enqueue(entry2)
+		FatalUnless(t, err)
+		got1, err := db.dequeue(entry1.AppEUI, entry1.DevEUI)
+		FatalUnless(t, err)
+		got2, err := db.dequeue(entry2.AppEUI, entry2.DevEUI)
+		FatalUnless(t, err)
+		Check(t, entry1, got1, "Packet Entries")
+		Check(t, entry2, got2, "Packet Entries")
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Pull after close")
+		Desc(t, "Queue two, wait first expires, then peek")
+		entry1 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now(), Payload: []byte{42}}
+		entry2 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{14}}
+		err := db.enqueue(entry1)
+		FatalUnless(t, err)
+		err = db.enqueue(entry2)
+		FatalUnless(t, err)
+		<-time.After(time.Millisecond * 10)
+		got, err := db.peek(entry2.AppEUI, entry2.DevEUI)
+		CheckErrors(t, nil, err)
+		Check(t, entry2, got, "Packet Entries")
+	}
 
-		// Build
-		appEUI := lorawan.EUI64([8]byte{1, 2, 1, 2, 1, 2, 1, 2})
-		devEUI := lorawan.EUI64([8]byte{2, 3, 4, 2, 3, 4, 2, 3})
+	// ------------------
 
-		// Operate
-		_, err := db.Pull(appEUI, devEUI)
+	{
+		Desc(t, "Queue three, dequeue then peek")
+		entry1 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{42}}
+		entry2 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{14}}
+		entry3 := pktEntry{AppEUI: []byte{1, 2}, DevEUI: []byte{3, 4}, TTL: time.Now().Add(time.Hour), Payload: []byte{6}}
+		err := db.enqueue(entry1)
+		FatalUnless(t, err)
+		err = db.enqueue(entry2)
+		FatalUnless(t, err)
+		err = db.enqueue(entry3)
+		FatalUnless(t, err)
+		got1, err := db.dequeue(entry1.AppEUI, entry1.DevEUI)
+		FatalUnless(t, err)
+		got2, err := db.peek(entry2.AppEUI, entry2.DevEUI)
+		FatalUnless(t, err)
+		Check(t, entry2, got1, "Packet Entries")
+		Check(t, entry3, got2, "Packet Entries")
+	}
 
-		// Check
-		CheckErrors(t, pointer.String(string(errors.Operational)), err)
+	// ------------------
+
+	{
+		Desc(t, "Close")
+		err := db.done()
+		CheckErrors(t, nil, err)
 	}
 }

@@ -3,113 +3,118 @@
 
 package handler
 
-import (
-	. "github.com/TheThingsNetwork/ttn/core"
-	"github.com/brocaar/lorawan"
-)
+// NOTE: All the code below could be generated
 
-// mockDevStorage implements the handler.DevStorage interface
-//
-// It declares a `Failures` attributes that can be used to
-// simulate failures on demand, associating the name of the method
-// which needs to fail with the actual failure.
-//
-// It also stores the last arguments of each function call in appropriated
-// attributes. Because there's no computation going on, the expected / wanted
-// responses should also be defined. Default values are provided but can be changed
-// if needed.
-type mockDevStorage struct {
-	Failures            map[string]error
-	OutLookup           devEntry
-	InLookupAppEUI      lorawan.EUI64
-	InLookupDevEUI      lorawan.EUI64
-	InStorePersonalized HRegistration
-	InStoreActivated    HRegistration
-	InUpdateAppEUI      lorawan.EUI64
-	InUpdateDevEUI      lorawan.EUI64
-	InUpdateFcnt        uint32
-}
-
-func newMockDevStorage() *mockDevStorage {
-	return &mockDevStorage{
-		Failures: make(map[string]error),
-		OutLookup: devEntry{
-			Recipient: []byte("MockDevStorageRecipient"),
-			DevAddr:   lorawan.DevAddr([4]byte{9, 9, 1, 4}),
-			AppSKey:   lorawan.AES128Key([16]byte{6, 6, 4, 3, 2, 2, 0, 9, 8, 7, 6, 3, 1, 9, 6, 14}),
-			NwkSKey:   lorawan.AES128Key([16]byte{7, 2, 3, 3, 5, 6, 7, 0, 9, 0, 1, 2, 7, 4, 5, 5}),
-		},
+// MockDevStorage mocks the DevStorage interface
+type MockDevStorage struct {
+	Failures map[string]error
+	InRead   struct {
+		AppEUI []byte
+		DevEUI []byte
+	}
+	OutRead struct {
+		Entry devEntry
+	}
+	InReadAll struct {
+		AppEUI []byte
+	}
+	OutReadAll struct {
+		Entries []devEntry
+	}
+	InUpsert struct {
+		Entry devEntry
+	}
+	InDone struct {
+		Called bool
 	}
 }
 
-func (s *mockDevStorage) Lookup(appEUI lorawan.EUI64, devEUI lorawan.EUI64) (devEntry, error) {
-	s.InLookupAppEUI = appEUI
-	s.InLookupDevEUI = devEUI
-	if s.Failures["Lookup"] != nil {
-		return devEntry{}, s.Failures["Lookup"]
-	}
-	return s.OutLookup, nil
-}
-
-func (s *mockDevStorage) UpdateFCnt(appEUI lorawan.EUI64, devEUI lorawan.EUI64, fcnt uint32) error {
-	s.InUpdateAppEUI = appEUI
-	s.InUpdateDevEUI = devEUI
-	s.InUpdateFcnt = fcnt
-	return s.Failures["UpdateFCnt"]
-}
-
-func (s *mockDevStorage) StorePersonalized(r HRegistration) error {
-	s.InStorePersonalized = r
-	return s.Failures["StorePersonalized"]
-}
-
-func (s *mockDevStorage) StoreActivated(r HRegistration) error {
-	s.InStoreActivated = r
-	return s.Failures["StoreActivated"]
-}
-
-func (s *mockDevStorage) Close() error {
-	return s.Failures["Close"]
-}
-
-// mockPktStorage implements the handler.PktStorage interface
-//
-// It declares a `Failures` attributes that can be used to
-// simulate failures on demand, associating the name of the method
-// which needs to fail with the actual failure.
-//
-// It also stores the last arguments of each function call in appropriated
-// attributes. Because there's no computation going on, the expected / wanted
-// responses should also be defined. Default values are provided but can be changed
-// if needed.
-type mockPktStorage struct {
-	Failures     map[string]error
-	OutPull      APacket
-	InPullAppEUI lorawan.EUI64
-	InPullDevEUI lorawan.EUI64
-	InPush       APacket
-}
-
-func newMockPktStorage() *mockPktStorage {
-	return &mockPktStorage{
+// NewMockDevStorage creates a new MockDevStorage
+func NewMockDevStorage() *MockDevStorage {
+	return &MockDevStorage{
 		Failures: make(map[string]error),
 	}
 }
 
-func (s *mockPktStorage) Push(p APacket) error {
-	s.InPush = p
-	return s.Failures["Push"]
+// read implements the DevStorage interface
+func (m *MockDevStorage) read(appEUI []byte, devEUI []byte) (devEntry, error) {
+	m.InRead.AppEUI = appEUI
+	m.InRead.DevEUI = devEUI
+	return m.OutRead.Entry, m.Failures["read"]
 }
 
-func (s *mockPktStorage) Pull(appEUI lorawan.EUI64, devEUI lorawan.EUI64) (APacket, error) {
-	s.InPullAppEUI = appEUI
-	s.InPullDevEUI = devEUI
-	if s.Failures["Pull"] != nil {
-		return nil, s.Failures["Pull"]
+// readAll implements the DevStorage interface
+func (m *MockDevStorage) readAll(appEUI []byte) ([]devEntry, error) {
+	m.InReadAll.AppEUI = appEUI
+	return m.OutReadAll.Entries, m.Failures["readAll"]
+}
+
+// upsert implements the DevStorage interface
+func (m *MockDevStorage) upsert(entry devEntry) error {
+	m.InUpsert.Entry = entry
+	return m.Failures["upsert"]
+}
+
+// done implements the DevStorage Interface
+func (m *MockDevStorage) done() error {
+	m.InDone.Called = true
+	return m.Failures["done"]
+}
+
+// MockPktStorage mocks the PktStorage interface
+type MockPktStorage struct {
+	Failures  map[string]error
+	InDequeue struct {
+		AppEUI []byte
+		DevEUI []byte
 	}
-	return s.OutPull, nil
+	OutDequeue struct {
+		Entry pktEntry
+	}
+	InPeek struct {
+		AppEUI []byte
+		DevEUI []byte
+	}
+	OutPeek struct {
+		Entry pktEntry
+	}
+	InEnqueue struct {
+		Entry pktEntry
+	}
+	InDone struct {
+		Called bool
+	}
 }
 
-func (s *mockPktStorage) Close() error {
-	return s.Failures["Close"]
+// NewMockPktStorage creates a new MockPktStorage
+func NewMockPktStorage() *MockPktStorage {
+	return &MockPktStorage{
+		Failures: make(map[string]error),
+	}
+}
+
+// done implements the PktStorage Interface
+func (m *MockPktStorage) done() error {
+	m.InDone.Called = true
+	return m.Failures["done"]
+}
+
+// enqueue implements the PktStorage interface
+func (m *MockPktStorage) enqueue(entry pktEntry) error {
+	m.InEnqueue.Entry = entry
+	return m.Failures["enqueue"]
+}
+
+// dequeue implements the PktStorage interface
+func (m *MockPktStorage) dequeue(appEUI []byte, devEUI []byte) (pktEntry, error) {
+	m.InDequeue.AppEUI = appEUI
+	m.InDequeue.DevEUI = devEUI
+	return m.OutDequeue.Entry, m.Failures["dequeue"]
+}
+
+// peek implements the PktStorage interface
+func (m *MockPktStorage) peek(appEUI []byte, devEUI []byte) (pktEntry, error) {
+	m.InPeek.AppEUI = appEUI
+	m.InPeek.DevEUI = devEUI
+	return m.OutPeek.Entry, m.Failures["peek"]
 }

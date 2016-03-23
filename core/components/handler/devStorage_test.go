@@ -8,17 +8,12 @@ import (
 	"path"
 	"testing"
 
-	. "github.com/TheThingsNetwork/ttn/core/mocks"
-	"github.com/TheThingsNetwork/ttn/utils/errors"
-	. "github.com/TheThingsNetwork/ttn/utils/errors/checks"
-	"github.com/TheThingsNetwork/ttn/utils/pointer"
 	. "github.com/TheThingsNetwork/ttn/utils/testing"
-	"github.com/brocaar/lorawan"
 )
 
 const devDB = "TestDevStorage.db"
 
-func TestLookupStore(t *testing.T) {
+func TestReadStore(t *testing.T) {
 	var db DevStorage
 	defer func() {
 		os.Remove(path.Join(os.TempDir(), devDB))
@@ -36,35 +31,41 @@ func TestLookupStore(t *testing.T) {
 	// ------------------
 
 	{
-		Desc(t, "Store and Lookup a registration")
+		Desc(t, "Store and read a registration")
 
 		// Build
-		r := NewMockHRegistration()
+		entry := devEntry{
+			AppEUI:  []byte{1, 2, 3, 4, 5, 6, 7, 8},
+			DevEUI:  []byte{0, 0, 0, 0, 1, 2, 3, 4},
+			DevAddr: []byte{1, 2, 3, 4},
+			AppSKey: [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6},
+			NwkSKey: [16]byte{6, 5, 4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 4, 3, 2, 1},
+		}
 
 		// Operate
-		err := db.StorePersonalized(r)
-		CheckErrors(t, nil, err)
-		entry, err := db.Lookup(r.AppEUI(), r.DevEUI())
+		err := db.upsert(entry)
+		FatalUnless(t, err)
+		got, err := db.read(entry.AppEUI, entry.DevEUI)
 
 		// Check
 		CheckErrors(t, nil, err)
-		CheckEntries(t, r, entry)
+		Check(t, entry, got, "Device Entries")
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Lookup a non-existing registration")
+		Desc(t, "read a non-existing registration")
 
 		// Build
-		r := NewMockHRegistration()
-		r.OutAppEUI = lorawan.EUI64([8]byte{1, 2, 1, 2, 1, 2, 1, 2})
+		appEUI := []byte{0, 0, 0, 0, 0, 0, 0, 1}
+		devEUI := []byte{0, 0, 0, 0, 1, 2, 3, 4}
 
 		// Operate
-		_, err := db.Lookup(r.AppEUI(), r.DevEUI())
+		_, err := db.read(appEUI, devEUI)
 
 		// Check
-		CheckErrors(t, pointer.String(string(errors.NotFound)), err)
+		CheckErrors(t, ErrNotFound, err)
 	}
 
 	// ------------------
@@ -73,42 +74,190 @@ func TestLookupStore(t *testing.T) {
 		Desc(t, "Store twice the same registration")
 
 		// Build
-		r := NewMockHRegistration()
-		r.OutAppEUI = lorawan.EUI64([8]byte{1, 4, 1, 4, 1, 4, 1, 4})
+		entry := devEntry{
+			AppEUI:  []byte{1, 2, 3, 4, 5, 6, 7, 9},
+			DevEUI:  []byte{0, 0, 0, 0, 1, 2, 3, 4},
+			DevAddr: []byte{1, 2, 3, 4},
+			AppSKey: [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6},
+			NwkSKey: [16]byte{6, 5, 4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 4, 3, 2, 1},
+		}
 
 		// Operate
-		_ = db.StorePersonalized(r)
-		err := db.StorePersonalized(r)
-		CheckErrors(t, nil, err)
-		entry, err := db.Lookup(r.AppEUI(), r.DevEUI())
+		err := db.upsert(entry)
+		FatalUnless(t, err)
+		err = db.upsert(entry)
+		FatalUnless(t, err)
+		got, err := db.read(entry.AppEUI, entry.DevEUI)
 
 		// Check
 		CheckErrors(t, nil, err)
-		CheckEntries(t, r, entry)
+		Check(t, entry, got, "Device Entries")
 	}
 
 	// ------------------
 
 	{
-		Desc(t, "Store Activated")
+		Desc(t, "Update FCnt")
 
 		// Build
-		r := NewMockHRegistration()
-		r.OutAppEUI = lorawan.EUI64([8]byte{6, 6, 6, 7, 8, 6, 7, 6})
+		entry := devEntry{
+			AppEUI:   []byte{1, 2, 3, 4, 5, 6, 7, 14},
+			DevEUI:   []byte{0, 0, 0, 0, 1, 2, 3, 4},
+			DevAddr:  []byte{1, 2, 3, 4},
+			AppSKey:  [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6},
+			NwkSKey:  [16]byte{6, 5, 4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 4, 3, 2, 1},
+			FCntDown: 2,
+		}
+		update := devEntry{
+			AppEUI:   entry.AppEUI,
+			DevEUI:   entry.DevEUI,
+			DevAddr:  entry.DevAddr,
+			AppSKey:  entry.AppSKey,
+			NwkSKey:  entry.NwkSKey,
+			FCntDown: 14,
+		}
 
 		// Operate
-		err := db.StoreActivated(r)
+		err := db.upsert(entry)
+		FatalUnless(t, err)
+		err = db.upsert(update)
+		got, errRead := db.read(entry.AppEUI, entry.DevEUI)
+		FatalUnless(t, errRead)
 
 		// Check
-		CheckErrors(t, pointer.String(string(errors.Implementation)), err)
+		CheckErrors(t, nil, err)
+		Check(t, update, got, "Device Entries")
+	}
+
+	// ------------------
+
+	{
+		Desc(t, "Store several, then readAll")
+
+		// Build
+		entry1 := devEntry{
+			AppEUI:   []byte{1, 2, 3, 44, 54, 6, 7, 14},
+			DevEUI:   []byte{0, 0, 0, 0, 1, 2, 3, 4},
+			DevAddr:  []byte{1, 2, 3, 4},
+			AppSKey:  [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6},
+			NwkSKey:  [16]byte{6, 5, 4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 4, 3, 2, 1},
+			FCntDown: 2,
+		}
+		entry2 := devEntry{
+			AppEUI:   []byte{1, 2, 3, 44, 54, 6, 7, 14},
+			DevEUI:   []byte{0, 0, 0, 0, 1, 2, 3, 5},
+			DevAddr:  []byte{2, 2, 3, 4},
+			AppSKey:  [16]byte{2, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6},
+			NwkSKey:  [16]byte{7, 5, 4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 4, 3, 2, 1},
+			FCntDown: 3,
+		}
+		entry3 := devEntry{
+			AppEUI:   []byte{1, 8, 9, 44, 54, 6, 7, 14},
+			DevEUI:   []byte{0, 0, 0, 0, 1, 2, 3, 5},
+			DevAddr:  []byte{2, 2, 3, 4},
+			AppSKey:  [16]byte{2, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6},
+			NwkSKey:  [16]byte{7, 5, 4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 4, 3, 2, 1},
+			FCntDown: 3,
+		}
+
+		// Operate
+		err := db.upsert(entry1)
+		FatalUnless(t, err)
+		err = db.upsert(entry2)
+		FatalUnless(t, err)
+		err = db.upsert(entry3)
+		FatalUnless(t, err)
+		entries, err := db.readAll(entry1.AppEUI)
+
+		// Check
+		CheckErrors(t, nil, err)
+		Check(t, []devEntry{entry1, entry2}, entries, "Devices Entries")
 	}
 
 	// ------------------
 
 	{
 		Desc(t, "Close the storage")
-		err := db.Close()
+		err := db.done()
 		CheckErrors(t, nil, err)
 	}
+}
 
+func TestMarshalUnmarshalEntries(t *testing.T) {
+	{
+		Desc(t, "Complete Entry")
+		entry := devEntry{
+			AppEUI:   []byte{1, 2, 3, 4, 5, 6, 7, 8},
+			AppKey:   &[16]byte{1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2},
+			AppSKey:  [16]byte{0, 9, 8, 7, 6, 5, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1},
+			DevAddr:  []byte{4, 4, 4, 4},
+			DevEUI:   []byte{14, 14, 14, 14, 14, 14, 14, 14},
+			FCntDown: 42,
+			NwkSKey:  [16]byte{28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13},
+		}
+
+		data, err := entry.MarshalBinary()
+		CheckErrors(t, nil, err)
+		unmarshaled := new(devEntry)
+		err = unmarshaled.UnmarshalBinary(data)
+		CheckErrors(t, nil, err)
+		Check(t, entry, *unmarshaled, "Entries")
+	}
+
+	// --------------------
+
+	{
+		Desc(t, "Partial Entry")
+		entry := devEntry{
+			AppEUI:   []byte{1, 2, 3, 4, 5, 6, 7, 8},
+			AppKey:   &[16]byte{1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2},
+			DevEUI:   []byte{14, 14, 14, 14, 14, 14, 14, 14},
+			FCntDown: 0,
+		}
+		want := devEntry{
+			AppEUI:   []byte{1, 2, 3, 4, 5, 6, 7, 8},
+			AppKey:   &[16]byte{1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2},
+			AppSKey:  [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			DevAddr:  make([]byte, 0, 0),
+			DevEUI:   []byte{14, 14, 14, 14, 14, 14, 14, 14},
+			FCntDown: 0,
+			NwkSKey:  [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		}
+
+		data, err := entry.MarshalBinary()
+		CheckErrors(t, nil, err)
+		unmarshaled := new(devEntry)
+		err = unmarshaled.UnmarshalBinary(data)
+		CheckErrors(t, nil, err)
+		Check(t, want, *unmarshaled, "Entries")
+	}
+
+	// --------------------
+
+	{
+		Desc(t, "Partial Entry bis")
+		entry := devEntry{
+			AppEUI:   []byte{1, 2, 3, 4, 5, 6, 7, 8},
+			AppKey:   &[16]byte{1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2},
+			DevEUI:   []byte{14, 14, 14, 14, 14, 14, 14, 14},
+			DevAddr:  []byte{},
+			FCntDown: 0,
+		}
+		want := devEntry{
+			AppEUI:   []byte{1, 2, 3, 4, 5, 6, 7, 8},
+			AppKey:   &[16]byte{1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2},
+			AppSKey:  [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			DevAddr:  make([]byte, 0, 0),
+			DevEUI:   []byte{14, 14, 14, 14, 14, 14, 14, 14},
+			FCntDown: 0,
+			NwkSKey:  [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		}
+
+		data, err := entry.MarshalBinary()
+		CheckErrors(t, nil, err)
+		unmarshaled := new(devEntry)
+		err = unmarshaled.UnmarshalBinary(data)
+		CheckErrors(t, nil, err)
+		Check(t, want, *unmarshaled, "Entries")
+	}
 }
