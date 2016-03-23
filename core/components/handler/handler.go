@@ -476,6 +476,7 @@ func (h component) consumeJoin(appEUI []byte, devEUI []byte, appKey [16]byte, da
 		DevAddr:  devAddr[:],
 		DevEUI:   devEUI,
 		FCntDown: 0,
+		FCntUp:   0,
 		NwkSKey:  nwkSKey,
 	})
 	if err != nil {
@@ -587,17 +588,28 @@ func (h component) consumeDown(appEUI []byte, devEUI []byte, dataRate string, bu
 	}
 
 	// One of those bundle might be available for a response
+	upType := lorawan.MType(bundles[0].Packet.(*core.DataUpHandlerReq).MType)
 	for i, bundle := range bundles {
-		if best != nil && best.ID == i && downlink.Payload != nil && err == nil {
+		if best != nil && best.ID == i && (downlink.Payload != nil || upType == lorawan.ConfirmedDataUp) {
 			stats.MarkMeter("handler.downlink.pull")
-
-			downlink, err := h.buildDownlink(downlink.Payload, *bundle.Packet.(*core.DataUpHandlerReq), bundle.Entry, best.IsRX2)
+			var downType lorawan.MType
+			switch upType {
+			case lorawan.UnconfirmedDataUp:
+				downType = lorawan.UnconfirmedDataDown
+			case lorawan.ConfirmedDataUp:
+				downType = lorawan.ConfirmedDataDown
+			default:
+				h.abortConsume(errors.New(errors.Implementation, "Unrecognized uplink MType"), bundles)
+				return
+			}
+			downlink, err := h.buildDownlink(downlink.Payload, downType, *bundle.Packet.(*core.DataUpHandlerReq), bundle.Entry, best.IsRX2)
 			if err != nil {
 				h.abortConsume(errors.New(errors.Structural, err), bundles)
 				return
 			}
 
 			bundle.Entry.FCntDown = downlink.Payload.MACPayload.FHDR.FCnt
+			bundle.Entry.FCntUp = bundle.Packet.(*core.DataUpHandlerReq).FCnt
 			err = h.DevStorage.upsert(bundle.Entry)
 			if err != nil {
 				h.abortConsume(err, bundles)
@@ -606,6 +618,14 @@ func (h component) consumeDown(appEUI []byte, devEUI []byte, dataRate string, bu
 			bundle.Chresp <- downlink
 		} else {
 			bundle.Chresp <- nil
+		}
+	}
+
+	// Then, if there was no downlink, we still update the Frame Counter Up in the storage
+	if best == nil || downlink.Payload == nil && upType != lorawan.ConfirmedDataUp {
+		bundles[0].Entry.FCntUp = bundles[0].Packet.(*core.DataUpHandlerReq).FCnt
+		if err := h.DevStorage.upsert(bundles[0].Entry); err != nil {
+			h.Ctx.WithError(err).Debug("Unable to update Frame Counter Up")
 		}
 	}
 }
@@ -621,7 +641,7 @@ func (h component) abortConsume(err error, bundles []bundle) {
 
 // constructs a downlink packet from something we pulled from the gathered downlink, and, the actual
 // uplink.
-func (h component) buildDownlink(down []byte, up core.DataUpHandlerReq, entry devEntry, isRX2 bool) (*core.DataUpHandlerRes, error) {
+func (h component) buildDownlink(down []byte, mtype lorawan.MType, up core.DataUpHandlerReq, entry devEntry, isRX2 bool) (*core.DataUpHandlerRes, error) {
 	macpayload := lorawan.NewMACPayload(false)
 	macpayload.FHDR = lorawan.FHDR{
 		FCnt: entry.FCntDown + 1,
@@ -629,20 +649,25 @@ func (h component) buildDownlink(down []byte, up core.DataUpHandlerReq, entry de
 	copy(macpayload.FHDR.DevAddr[:], entry.DevAddr)
 	macpayload.FPort = new(uint8)
 	*macpayload.FPort = 1
-	macpayload.FRMPayload = []lorawan.Payload{&lorawan.DataPayload{Bytes: down}}
-
-	if err := macpayload.EncryptFRMPayload(entry.AppSKey); err != nil {
-		return nil, errors.New(errors.Structural, err)
+	if mtype == lorawan.ConfirmedDataDown {
+		macpayload.FHDR.FCtrl.ACK = true
 	}
-
-	frmpayload, err := macpayload.FRMPayload[0].MarshalBinary()
-	if err != nil {
-		return nil, errors.New(errors.Structural, err)
+	var frmpayload []byte
+	if down != nil {
+		macpayload.FRMPayload = []lorawan.Payload{&lorawan.DataPayload{Bytes: down}}
+		err := macpayload.EncryptFRMPayload(entry.AppSKey)
+		if err != nil {
+			return nil, errors.New(errors.Structural, err)
+		}
+		frmpayload, err = macpayload.FRMPayload[0].MarshalBinary()
+		if err != nil {
+			return nil, errors.New(errors.Structural, err)
+		}
 	}
 
 	payload := lorawan.NewPHYPayload(false)
 	payload.MHDR = lorawan.MHDR{
-		MType: lorawan.UnconfirmedDataDown, // TODO Handle Confirmed data down
+		MType: mtype,
 		Major: lorawan.LoRaWANR1,
 	}
 	payload.MACPayload = macpayload

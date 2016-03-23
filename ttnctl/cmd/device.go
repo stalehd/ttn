@@ -49,26 +49,26 @@ var devicesCmd = &cobra.Command{
 		ctx.Infof("Found %d personalized devices (ABP)", len(res.ABP))
 		table := uitable.New()
 		table.MaxColWidth = 70
-		table.AddRow("DevAddr", "NwkSKey", "AppSKey")
+		table.AddRow("DevAddr", "NwkSKey", "AppSKey", "FCntUp", "FCntDown")
 		for _, device := range res.ABP {
 			devAddr := fmt.Sprintf("%X", device.DevAddr)
 			nwkSKey := fmt.Sprintf("%X", device.NwkSKey)
 			appSKey := fmt.Sprintf("%X", device.AppSKey)
-			table.AddRow(devAddr, nwkSKey, appSKey)
+			table.AddRow(devAddr, nwkSKey, appSKey, device.FCntUp, device.FCntDown)
 		}
 		fmt.Println(table)
 
 		ctx.Infof("Found %d dynamic devices (OTAA)", len(res.OTAA))
 		table = uitable.New()
 		table.MaxColWidth = 40
-		table.AddRow("DevEUI", "DevAddr", "NwkSKey", "AppSKey", "AppKey")
+		table.AddRow("DevEUI", "DevAddr", "NwkSKey", "AppSKey", "AppKey", "FCntUp", "FCntDown")
 		for _, device := range res.OTAA {
 			devEUI := fmt.Sprintf("%X", device.DevEUI)
 			devAddr := fmt.Sprintf("%X", device.DevAddr)
 			nwkSKey := fmt.Sprintf("%X", device.NwkSKey)
 			appSKey := fmt.Sprintf("%X", device.AppSKey)
 			appKey := fmt.Sprintf("%X", device.AppKey)
-			table.AddRow(devEUI, devAddr, nwkSKey, appSKey, appKey)
+			table.AddRow(devEUI, devAddr, nwkSKey, appSKey, appKey, device.FCntUp, device.FCntDown)
 		}
 		fmt.Println(table)
 	},
@@ -160,9 +160,7 @@ var devicesRegisterPersonalizedCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(devicesCmd)
-
 	devicesCmd.AddCommand(devicesRegisterCmd)
-
 	devicesRegisterCmd.AddCommand(devicesRegisterPersonalizedCmd)
 
 	devicesCmd.Flags().String("ttn-handler", "0.0.0.0:1782", "The net address of the TTN Handler")
@@ -173,4 +171,5 @@ func init() {
 
 	devicesCmd.PersistentFlags().String("app-token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJUVE4tSEFORExFUi0xIiwiaXNzIjoiVGhlVGhpbmdzVGhlTmV0d29yayIsInN1YiI6IjAxMDIwMzA0MDUwNjA3MDgifQ.zMHNXAVgQj672lwwDVmfYshpMvPwm6A8oNWJ7teGS2A", "The app Token to use")
 	viper.BindPFlag("app-token", devicesCmd.PersistentFlags().Lookup("app-token"))
+
 }
