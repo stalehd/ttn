@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
+	cliHandler "github.com/TheThingsNetwork/ttn/utils/cli/handler"
 	"github.com/apex/log"
-	"github.com/apex/log/handlers/cli"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -28,11 +28,9 @@ var RootCmd = &cobra.Command{
 		if viper.GetBool("debug") {
 			logLevel = log.DebugLevel
 		}
-		cli.Colors[log.DebugLevel] = 90
-		cli.Colors[log.InfoLevel] = 32
 		ctx = &log.Logger{
 			Level:   logLevel,
-			Handler: cli.New(os.Stdout),
+			Handler: cliHandler.New(os.Stdout),
 		}
 	},
 }
@@ -63,9 +61,8 @@ func init() {
 	RootCmd.PersistentFlags().String("app-eui", "0102030405060708", "The app EUI to use")
 	viper.BindPFlag("app-eui", RootCmd.PersistentFlags().Lookup("app-eui"))
 
-	RootCmd.PersistentFlags().String("app-token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJUVE4tSEFORExFUi0xIiwiaXNzIjoiVGhlVGhpbmdzVGhlTmV0d29yayIsInN1YiI6IjAxMDIwMzA0MDUwNjA3MDgifQ.zMHNXAVgQj672lwwDVmfYshpMvPwm6A8oNWJ7teGS2A", "The app Token to use")
-	viper.BindPFlag("app-token", RootCmd.PersistentFlags().Lookup("app-token"))
-
+	RootCmd.PersistentFlags().String("ttn-account-server", "https://account.thethingsnetwork.org", "The address of the OAuth 2.0 server")
+	viper.BindPFlag("ttn-account-server", RootCmd.PersistentFlags().Lookup("ttn-account-server"))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -76,6 +73,7 @@ func initConfig() {
 
 	viper.SetConfigName(".ttnctl")
 	viper.AddConfigPath("$HOME")
+	viper.SetEnvPrefix("ttnctl") // set environment prefix
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv()
 

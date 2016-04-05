@@ -5,7 +5,6 @@ package handler
 
 import (
 	"bytes"
-	"crypto/aes"
 	"encoding/binary"
 	"fmt"
 	"math/rand"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/TheThingsNetwork/ttn/core"
 	"github.com/TheThingsNetwork/ttn/core/dutycycle"
+	"github.com/TheThingsNetwork/ttn/core/otaa"
 	"github.com/TheThingsNetwork/ttn/utils/errors"
 	"github.com/TheThingsNetwork/ttn/utils/stats"
 	"github.com/apex/log"
@@ -461,30 +461,27 @@ func (h component) consumeJoin(appEUI []byte, devEUI []byte, appKey [16]byte, da
 	}
 	packet := bundles[best.ID].Packet.(*core.JoinHandlerReq)
 
-	// Generate a DevAddr + NwkSKey + AppSKey
-	ctx.Debug("Generate DevAddr, NwkSKey and AppSKey")
+	// Generate a DevAddr - Note: this should be done by the Broker (issue #90). Random generation should be moved to the random package
 	rdn := rand.New(rand.NewSource(int64(packet.Metadata.Rssi)))
-	appNonce, devAddr := make([]byte, 4), [4]byte{}
-	binary.BigEndian.PutUint32(appNonce, rdn.Uint32())
+	var devAddr [4]byte
 	binary.BigEndian.PutUint32(devAddr[:], rdn.Uint32())
 	devAddr[0] = (h.Configuration.NetID[2] << 1) | (devAddr[0] & 1) // DevAddr 7 msb are NetID 7 lsb
 
-	buf := make([]byte, 16)
-	copy(buf[1:4], appNonce[:3])
-	copy(buf[4:7], h.Configuration.NetID[:])
-	copy(buf[7:9], packet.DevNonce)
+	// Generate appNonce - Note: this should be moved to the random package
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, rdn.Uint32())
+	var appNonce [3]byte
+	copy(appNonce[:], b[:3])
 
-	block, err := aes.NewCipher(appKey[:])
-	if err != nil || block.BlockSize() != 16 {
-		h.abortConsume(errors.New(errors.Structural, "Unable to create cipher to generate keys"), bundles)
+	var devNonce [2]byte
+	copy(devNonce[:], packet.DevNonce)
+
+	// Generate Session keys
+	appSKey, nwkSKey, err := otaa.CalculateSessionKeys(appKey, appNonce, h.Configuration.NetID, devNonce)
+	if err != nil {
+		h.abortConsume(errors.New(errors.Structural, "Unable to generate session keys"), bundles)
 		return
 	}
-
-	var nwkSKey, appSKey [16]byte
-	buf[0] = 0x1
-	block.Encrypt(nwkSKey[:], buf)
-	buf[0] = 0x2
-	block.Encrypt(appSKey[:], buf)
 
 	// Update the internal storage entry
 	err = h.DevStorage.upsert(devEntry{
@@ -610,17 +607,9 @@ func (h component) consumeDown(appEUI []byte, devEUI []byte, dataRate string, bu
 	for i, bundle := range bundles {
 		if best != nil && best.ID == i && (downlink.Payload != nil || upType == lorawan.ConfirmedDataUp) {
 			stats.MarkMeter("handler.downlink.pull")
-			var downType lorawan.MType
-			switch upType {
-			case lorawan.UnconfirmedDataUp:
-				downType = lorawan.UnconfirmedDataDown
-			case lorawan.ConfirmedDataUp:
-				downType = lorawan.ConfirmedDataDown
-			default:
-				h.abortConsume(errors.New(errors.Implementation, "Unrecognized uplink MType"), bundles)
-				return
-			}
-			downlink, err := h.buildDownlink(downlink.Payload, downType, *bundle.Packet.(*core.DataUpHandlerReq), bundle.Entry, best.IsRX2)
+			downType := lorawan.UnconfirmedDataDown
+			ack := (upType == lorawan.ConfirmedDataUp)
+			downlink, err := h.buildDownlink(downlink.Payload, downType, ack, *bundle.Packet.(*core.DataUpHandlerReq), bundle.Entry, best.IsRX2)
 			if err != nil {
 				h.abortConsume(errors.New(errors.Structural, err), bundles)
 				return
@@ -659,7 +648,7 @@ func (h component) abortConsume(err error, bundles []bundle) {
 
 // constructs a downlink packet from something we pulled from the gathered downlink, and, the actual
 // uplink.
-func (h component) buildDownlink(down []byte, mtype lorawan.MType, up core.DataUpHandlerReq, entry devEntry, isRX2 bool) (*core.DataUpHandlerRes, error) {
+func (h component) buildDownlink(down []byte, mtype lorawan.MType, ack bool, up core.DataUpHandlerReq, entry devEntry, isRX2 bool) (*core.DataUpHandlerRes, error) {
 	macpayload := lorawan.NewMACPayload(false)
 	macpayload.FHDR = lorawan.FHDR{
 		FCnt: entry.FCntDown + 1,
@@ -667,7 +656,7 @@ func (h component) buildDownlink(down []byte, mtype lorawan.MType, up core.DataU
 	copy(macpayload.FHDR.DevAddr[:], entry.DevAddr)
 	macpayload.FPort = new(uint8)
 	*macpayload.FPort = 1
-	if mtype == lorawan.ConfirmedDataDown {
+	if ack {
 		macpayload.FHDR.FCtrl.ACK = true
 	}
 	var frmpayload []byte

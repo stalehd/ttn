@@ -62,7 +62,7 @@ func (b component) ValidateOTAA(bctx context.Context, req *core.ValidateOTAABrok
 
 // UpsertABP implements the core.BrokerManager interface
 func (b component) UpsertABP(bctx context.Context, req *core.UpsertABPBrokerReq) (*core.UpsertABPBrokerRes, error) {
-	b.Ctx.Debug("Handle ValidateOTAA request")
+	b.Ctx.Debug("Handle UpsertABP request")
 
 	// 1. Validate the request
 	re := regexp.MustCompile("^([-\\w]+\\.?)+:\\d+$")
@@ -101,13 +101,35 @@ func (b component) UpsertABP(bctx context.Context, req *core.UpsertABPBrokerReq)
 // validateToken verify an OAuth Bearer token pass through metadata during RPC
 func (b component) validateToken(ctx context.Context, token string, appEUI []byte) error {
 	parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		return b.SecretKey[:], nil
+		if b.TokenKeyProvider == nil {
+			return nil, errors.New(errors.Structural, "No token provider configured")
+		}
+		k, err := b.TokenKeyProvider.Get(false)
+		if err != nil {
+			return nil, err
+		}
+		if k.Algorithm != token.Header["alg"] {
+			return nil, errors.New(errors.Structural, fmt.Sprintf("Expected algorithm %v but got %v", k.Algorithm, token.Header["alg"]))
+		}
+		return []byte(k.Key), nil
 	})
 	if err != nil {
-		return errors.New(errors.Structural, "Unable to parse token")
+		return errors.New(errors.Structural, fmt.Sprintf("Unable to parse token: %s", err.Error()))
 	}
-	if !parsed.Valid || parsed.Claims["sub"] != fmt.Sprintf("%X", appEUI) {
-		return errors.New(errors.Structural, "Invalid token.")
+	if !parsed.Valid {
+		return errors.New(errors.Operational, "The token is not valid or is expired")
 	}
-	return nil
+
+	apps, ok := parsed.Claims["apps"].([]interface{})
+	if !ok {
+		return fmt.Errorf("Invalid type of apps claim: %T", parsed.Claims["apps"])
+	}
+
+	for _, a := range apps {
+		if s, ok := a.(string); ok && s == fmt.Sprintf("%X", appEUI) {
+			return nil
+		}
+	}
+
+	return errors.New(errors.Operational, "Unauthorized")
 }

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -12,7 +13,9 @@ import (
 	"github.com/TheThingsNetwork/ttn/core/adapters/http"
 	"github.com/TheThingsNetwork/ttn/core/components/broker"
 	"github.com/TheThingsNetwork/ttn/utils/stats"
+	"github.com/TheThingsNetwork/ttn/utils/tokenkey"
 	"github.com/apex/log"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,8 +40,8 @@ devices (with their network session keys) with the Broker.
 			stats.Enabled = false
 		}
 		ctx.WithFields(log.Fields{
-			"devices database":      viper.GetString("broker.db-devices"),
-			"applications database": viper.GetString("broker.db-apps"),
+			"devices-database":      viper.GetString("broker.db-devices"),
+			"applications-database": viper.GetString("broker.db-apps"),
 			"status-server":         statusServer,
 			"main-server":           fmt.Sprintf("%s:%d", viper.GetString("broker.server-address"), viper.GetInt("broker.server-port")),
 		}).Info("Using Configuration")
@@ -104,8 +107,9 @@ devices (with their network session keys) with the Broker.
 				AppStorage:        dbApp,
 			},
 			broker.Options{
-				NetAddrUp:   fmt.Sprintf("%s:%d", viper.GetString("broker.uplink-address"), viper.GetInt("broker.uplink-port")),
-				NetAddrDown: fmt.Sprintf("%s:%d", viper.GetString("broker.downlink-address"), viper.GetInt("broker.downlink-port")),
+				NetAddrUp:        fmt.Sprintf("%s:%d", viper.GetString("broker.uplink-address"), viper.GetInt("broker.uplink-port")),
+				NetAddrDown:      fmt.Sprintf("%s:%d", viper.GetString("broker.downlink-address"), viper.GetInt("broker.downlink-port")),
+				TokenKeyProvider: tokenkey.NewHTTPProvider(fmt.Sprintf("%s/key", viper.GetString("broker.account-server")), viper.GetString("broker.oauth2-keyfile")),
 			},
 		)
 
@@ -139,4 +143,19 @@ func init() {
 	brokerCmd.Flags().Int("downlink-port", 1781, "The port for downlink communication")
 	viper.BindPFlag("broker.downlink-address", brokerCmd.Flags().Lookup("downlink-address"))
 	viper.BindPFlag("broker.downlink-port", brokerCmd.Flags().Lookup("downlink-port"))
+
+	brokerCmd.Flags().String("account-server", "https://account.thethingsnetwork.org", "The address of the OAuth 2.0 server")
+	viper.BindPFlag("broker.account-server", brokerCmd.Flags().Lookup("account-server"))
+
+	defaultOAuth2KeyFile := ""
+	dir, err := homedir.Dir()
+	if err == nil {
+		expanded, err := homedir.Expand(dir)
+		if err == nil {
+			defaultOAuth2KeyFile = path.Join(expanded, ".ttn/oauth2-token.pub")
+		}
+	}
+
+	brokerCmd.Flags().String("oauth2-keyfile", defaultOAuth2KeyFile, "The OAuth 2.0 public key")
+	viper.BindPFlag("broker.oauth2-keyfile", brokerCmd.Flags().Lookup("oauth2-keyfile"))
 }

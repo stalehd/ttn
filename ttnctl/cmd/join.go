@@ -4,15 +4,16 @@
 package cmd
 
 import (
-	"crypto/aes"
 	"encoding/base64"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/TheThingsNetwork/ttn/core/otaa"
 	"github.com/TheThingsNetwork/ttn/semtech"
 	"github.com/TheThingsNetwork/ttn/ttnctl/util"
 	"github.com/TheThingsNetwork/ttn/utils/pointer"
+	"github.com/TheThingsNetwork/ttn/utils/random"
 	"github.com/brocaar/lorawan"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -52,7 +53,7 @@ var joinCmd = &cobra.Command{
 
 		// Generate a DevNonce
 		var devNonce [2]byte
-		copy(devNonce[:], util.RandToken())
+		copy(devNonce[:], random.Token())
 
 		// Lorawan Payload
 		joinPayload := lorawan.JoinRequestPayload{
@@ -142,21 +143,11 @@ var joinCmd = &cobra.Command{
 				ctx.Fatalf("Unable to retrieve LoRaWAN Join-Accept Payload")
 			}
 
-			buf = make([]byte, 16)
-			copy(buf[1:4], joinAccept.AppNonce[:])
-			copy(buf[4:7], joinAccept.NetID[:])
-			copy(buf[7:9], devNonce[:])
-
-			block, err := aes.NewCipher(appKey[:])
-			if err != nil || block.BlockSize() != 16 {
-				ctx.Fatalf("Unable to create cipher to generate keys: %s", err)
+			// Generate Session keys
+			appSKey, nwkSKey, err := otaa.CalculateSessionKeys(appKey, joinAccept.AppNonce, joinAccept.NetID, devNonce)
+			if err != nil {
+				ctx.Fatal("Unable to compute session keys")
 			}
-
-			var nwkSKey, appSKey [16]byte
-			buf[0] = 0x1
-			block.Encrypt(nwkSKey[:], buf)
-			buf[0] = 0x2
-			block.Encrypt(appSKey[:], buf)
 
 			ctx.Info("Network Joined.")
 			ctx.Infof("Device Address: %X", joinAccept.DevAddr[:])
@@ -186,17 +177,17 @@ var joinCmd = &cobra.Command{
 		encoded := strings.Trim(base64.StdEncoding.EncodeToString(data), "=")
 		payload := semtech.Packet{
 			Identifier: semtech.PUSH_DATA,
-			Token:      util.RandToken(),
+			Token:      random.Token(),
 			GatewayId:  []byte{1, 2, 3, 4, 5, 6, 7, 8},
 			Version:    semtech.VERSION,
 			Payload: &semtech.Payload{
 				RXPK: []semtech.RXPK{
 					{
-						Rssi: pointer.Int32(util.RandRssi()),
-						Lsnr: pointer.Float32(util.RandLsnr()),
-						Freq: pointer.Float32(util.RandFreq()),
-						Datr: pointer.String(util.RandDatr()),
-						Codr: pointer.String(util.RandCodr()),
+						Rssi: pointer.Int32(random.Rssi()),
+						Lsnr: pointer.Float32(random.Lsnr()),
+						Freq: pointer.Float32(random.Freq()),
+						Datr: pointer.String(random.Datr()),
+						Codr: pointer.String(random.Codr()),
 						Modu: pointer.String("LoRa"),
 						Tmst: pointer.Uint32(1),
 						Data: &encoded,

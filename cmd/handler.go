@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/TheThingsNetwork/ttn/core/adapters/http"
-	"github.com/TheThingsNetwork/ttn/core/adapters/mqtt"
+	handlerMQTT "github.com/TheThingsNetwork/ttn/core/adapters/mqtt"
 	"github.com/TheThingsNetwork/ttn/core/components/broker"
 	"github.com/TheThingsNetwork/ttn/core/components/handler"
+	ttnMQTT "github.com/TheThingsNetwork/ttn/mqtt"
 	"github.com/TheThingsNetwork/ttn/utils/stats"
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -37,13 +38,13 @@ The Handler is the bridge between The Things Network and applications.
 			stats.Enabled = false
 		}
 		ctx.WithFields(log.Fields{
-			"devicesDatabase": viper.GetString("handler.db-devices"),
-			"packetsDatabase": viper.GetString("handler.db-packets"),
-			"status-server":   statusServer,
-			"internal server": fmt.Sprintf("%s:%d", viper.GetString("handler.internal-address"), viper.GetInt("handler.internal-port")),
-			"public server":   fmt.Sprintf("%s:%d", viper.GetString("handler.public-address"), viper.GetInt("handler.public-port")),
-			"ttn-broker":      viper.GetString("handler.ttn-broker"),
-			"mqtt-broker":     viper.GetString("handler.mqtt-broker"),
+			"devices-database": viper.GetString("handler.db-devices"),
+			"packets-database": viper.GetString("handler.db-packets"),
+			"status-server":    statusServer,
+			"internal-server":  fmt.Sprintf("%s:%d", viper.GetString("handler.internal-address"), viper.GetInt("handler.internal-port")),
+			"public-server":    fmt.Sprintf("%s:%d", viper.GetString("handler.public-address"), viper.GetInt("handler.public-port")),
+			"ttn-broker":       viper.GetString("handler.ttn-broker"),
+			"mqtt-broker":      viper.GetString("handler.mqtt-broker"),
 		}).Info("Using Configuration")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -109,17 +110,21 @@ The Handler is the bridge between The Things Network and applications.
 		}
 
 		// MQTT Client & adapter
-		mqttClient, chmsg, err := mqtt.NewClient(
-			"handler-client",
-			viper.GetString("handler.mqtt-broker"),
-			ctx.WithField("adapter", "app-adapter"),
+		mqttClient := ttnMQTT.NewClient(
+			ctx.WithField("adapter", "handler-mqtt"),
+			"ttnhdl",
+			viper.GetString("handler.mqtt-username"),
+			viper.GetString("handler.mqtt-password"),
+			fmt.Sprintf("tcp://%s", viper.GetString("handler.mqtt-broker")),
 		)
+		err = mqttClient.Connect()
 		if err != nil {
-			ctx.WithError(err).Fatal("Could not start MQTT client")
+			ctx.WithError(err).Fatal("Could not connect to MQTT")
 		}
-		appAdapter := mqtt.New(
-			mqtt.Components{Ctx: ctx.WithField("adapter", "app-adapter"), Client: mqttClient},
-			mqtt.Options{},
+
+		appAdapter := handlerMQTT.NewAdapter(
+			ctx.WithField("adapter", "app-adapter"),
+			mqttClient,
 		)
 
 		// Handler
@@ -138,8 +143,8 @@ The Handler is the bridge between The Things Network and applications.
 			},
 		)
 
-		// Go
-		appAdapter.Start(chmsg, handler)
+		appAdapter.SubscribeDownlink(handler)
+
 		if err := handler.Start(); err != nil {
 			ctx.WithError(err).Fatal("Handler has fallen...")
 		}
@@ -172,7 +177,11 @@ func init() {
 	viper.BindPFlag("handler.public-port", handlerCmd.Flags().Lookup("public-port"))
 
 	handlerCmd.Flags().String("mqtt-broker", "localhost:1883", "The address of the MQTT broker (uplink)")
+	handlerCmd.Flags().String("mqtt-username", "handler", "The username for the MQTT broker (uplink)")
+	handlerCmd.Flags().String("mqtt-password", "", "The password for the MQTT broker (uplink)")
 	viper.BindPFlag("handler.mqtt-broker", handlerCmd.Flags().Lookup("mqtt-broker"))
+	viper.BindPFlag("handler.mqtt-username", handlerCmd.Flags().Lookup("mqtt-username"))
+	viper.BindPFlag("handler.mqtt-password", handlerCmd.Flags().Lookup("mqtt-password"))
 
 	handlerCmd.Flags().String("ttn-broker", "localhost:1781", "The address of the TTN broker (downlink)")
 	viper.BindPFlag("handler.ttn-broker", handlerCmd.Flags().Lookup("ttn-broker"))
