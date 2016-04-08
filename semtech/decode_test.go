@@ -183,6 +183,25 @@ func TestUnmarshalBinary(t *testing.T) {
 			WantError: false,
 		},
 		{
+			Desc:   "PUSH_DATA with Stat(optional info fields)",
+			Header: []byte{1, 0x14, 0x42, PUSH_DATA, 1, 2, 3, 4, 5, 6, 7, 8},
+			JSON:   `{"stat":{"pfrm":"MultiTech","mail":"gateway@thethingsnetwork.org","desc":"TTN Office Gateway"}}`,
+			WantPacket: Packet{
+				Version:    VERSION,
+				Token:      []byte{0x14, 0x42},
+				Identifier: PUSH_DATA,
+				GatewayId:  []byte{1, 2, 3, 4, 5, 6, 7, 8},
+				Payload: &Payload{
+					Stat: &Stat{
+						Pfrm: pointer.String("MultiTech"),
+						Mail: pointer.String("gateway@thethingsnetwork.org"),
+						Desc: pointer.String("TTN Office Gateway"),
+					},
+				},
+			},
+			WantError: false,
+		},
+		{
 			Desc:   "PUSH_DATA with rxpk and txpk (?)",
 			Header: []byte{1, 0x14, 0x42, PUSH_DATA, 1, 2, 3, 4, 5, 6, 7, 8},
 			JSON:   `{"rxpk":[{"codr":"4/7","rssi":-42}],"txpk":{"ipol":true,"powe":12}}`,

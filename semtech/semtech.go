@@ -64,6 +64,9 @@ type Stat struct {
 	Rxok *uint32    `full:"RXValid" json:"rxok,omitempty"`          // Number of radio packets received with a valid PHY CRC
 	Time *time.Time `full:"Time" json:"-"`                          // UTC 'system' time of the gateway, ISO 8601 'expanded' format
 	Txnb *uint32    `full:"TXEmitted" json:"txnb,omitempty"`        // Number of packets emitted (unsigned integer)
+	Pfrm *string    `full:"Platform" json:"pfrm,omitempty"`         // Platform definition
+	Mail *string    `full:"ContactEmail" json:"mail,omitempty"`     // Email address of gateway operator
+	Desc *string    `full:"Description" json:"desc,omitempty"`      // Public description of this device
 }
 
 // Packet as seen by the gateway.
