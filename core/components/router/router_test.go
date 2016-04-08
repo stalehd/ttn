@@ -29,9 +29,12 @@ func TestHandleStats(t *testing.T) {
 		req := &core.StatsReq{
 			GatewayID: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 			Metadata: &core.StatsMetadata{
-				Altitude:  -14,
-				Longitude: 43.333,
-				Latitude:  -2.342,
+				Altitude:     -14,
+				Longitude:    43.333,
+				Latitude:     -2.342,
+				Platform:     "MultiTech",
+				ContactEmail: "gateway@thethingsnetwork.org",
+				Description:  "TTN Office Gateway",
 			},
 		}
 

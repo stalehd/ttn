@@ -33,4 +33,8 @@ message StatsMetadata {
     int32   Altitude        = 1;
     float   Longitude       = 2;
     float   Latitude        = 3;
+
+    string  Platform        = 11;
+    string  ContactEmail    = 12;
+    string  Description     = 13;
 }
