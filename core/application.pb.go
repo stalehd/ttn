@@ -2,70 +2,6 @@
 // source: application.proto
 // DO NOT EDIT!
 
-/*
-	Package core is a generated protocol buffer package.
-
-	It is generated from these files:
-		application.proto
-		broker.proto
-		broker_manager.proto
-		core.proto
-		handler.proto
-		handler_manager.proto
-		lorawan.proto
-		router.proto
-
-	It has these top-level messages:
-		DataAppReq
-		DataAppRes
-		JoinAppReq
-		JoinAppRes
-		DataBrokerReq
-		DataBrokerRes
-		JoinBrokerReq
-		JoinBrokerRes
-		ValidateOTAABrokerReq
-		ValidateOTAABrokerRes
-		UpsertABPBrokerReq
-		UpsertABPBrokerRes
-		BrokerDevice
-		ValidateTokenBrokerReq
-		ValidateTokenBrokerRes
-		Metadata
-		StatsMetadata
-		DataUpHandlerReq
-		DataUpHandlerRes
-		DataDownHandlerReq
-		DataDownHandlerRes
-		JoinHandlerReq
-		JoinHandlerRes
-		UpsertOTAAHandlerReq
-		UpsertOTAAHandlerRes
-		UpsertABPHandlerReq
-		UpsertABPHandlerRes
-		ListDevicesHandlerReq
-		ListDevicesHandlerRes
-		HandlerABPDevice
-		HandlerOTAADevice
-		GetDefaultDeviceReq
-		GetDefaultDeviceRes
-		SetDefaultDeviceReq
-		SetDefaultDeviceRes
-		LoRaWANData
-		LoRaWANMHDR
-		LoRaWANMACPayload
-		LoRaWANFHDR
-		LoRaWANFCtrl
-		LoRaWANJoinRequest
-		LoRaWANJoinAccept
-		LoRaWANDLSettings
-		DataRouterReq
-		DataRouterRes
-		StatsReq
-		StatsRes
-		JoinRouterReq
-		JoinRouterRes
-*/
 package core
 
 import proto "github.com/golang/protobuf/proto"
@@ -83,10 +19,6 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-const _ = proto.ProtoPackageIsVersion1
 
 type DataAppReq struct {
 	AppEUI   []byte      `protobuf:"bytes,1,opt,name=AppEUI,json=appEUI,proto3" json:"AppEUI,omitempty"`
@@ -154,6 +86,10 @@ func init() {
 var _ context.Context
 var _ grpc.ClientConn
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion2
+
 // Client API for App service
 
 type AppClient interface {
@@ -198,28 +134,40 @@ func RegisterAppServer(s *grpc.Server, srv AppServer) {
 	s.RegisterService(&_App_serviceDesc, srv)
 }
 
-func _App_HandleData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _App_HandleData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DataAppReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(AppServer).HandleData(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(AppServer).HandleData(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/core.App/HandleData",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AppServer).HandleData(ctx, req.(*DataAppReq))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _App_HandleJoin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _App_HandleJoin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(JoinAppReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(AppServer).HandleJoin(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(AppServer).HandleJoin(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/core.App/HandleJoin",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AppServer).HandleJoin(ctx, req.(*JoinAppReq))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _App_serviceDesc = grpc.ServiceDesc{

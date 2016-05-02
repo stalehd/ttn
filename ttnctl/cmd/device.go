@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/TheThingsNetwork/ttn/core"
 	"github.com/TheThingsNetwork/ttn/core/components/handler"
@@ -19,6 +20,8 @@ import (
 )
 
 const emptyCell = "-"
+
+var defaultKey = []byte{0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C}
 
 func getHandlerManager() core.AuthHandlerClient {
 	cli, err := handler.NewClient(viper.GetString("ttn-handler"))
@@ -75,10 +78,17 @@ registered on the Handler.`,
 
 		table := uitable.New()
 		table.MaxColWidth = 70
-		table.AddRow("DevAddr", "FCntUp", "FCntDown")
+		table.AddRow("DevAddr", "FCntUp", "FCntDown", "Flags")
 		for _, device := range devices.ABP {
 			devAddr := fmt.Sprintf("%X", device.DevAddr)
-			table.AddRow(devAddr, device.FCntUp, device.FCntDown)
+			var flags string
+			if (device.Flags & core.RelaxFcntCheck) != 0 {
+				flags = "relax-fcnt"
+			}
+			if flags == "" {
+				flags = "-"
+			}
+			table.AddRow(devAddr, device.FCntUp, device.FCntDown, strings.TrimLeft(flags, ","))
 		}
 
 		fmt.Println()
@@ -138,6 +148,10 @@ var devicesInfoCmd = &cobra.Command{
 					fmt.Println("Dynamic device:")
 
 					fmt.Println()
+					fmt.Printf("  AppEUI:  %X\n", appEUI)
+					fmt.Printf("           {%s}\n", cStyle(appEUI))
+
+					fmt.Println()
 					fmt.Printf("  DevEUI:  %X\n", device.DevEUI)
 					fmt.Printf("           {%s}\n", cStyle(device.DevEUI))
 
@@ -192,6 +206,15 @@ var devicesInfoCmd = &cobra.Command{
 
 					fmt.Println()
 					fmt.Printf("  FCntUp:  %d\n  FCntDn:  %d\n", device.FCntUp, device.FCntDown)
+					fmt.Println()
+					var flags string
+					if (device.Flags & core.RelaxFcntCheck) != 0 {
+						flags = "relax-fcnt"
+					}
+					if flags == "" {
+						flags = "-"
+					}
+					fmt.Printf("  Flags:   %s\n", strings.TrimLeft(flags, ","))
 					return
 				}
 			}
@@ -298,10 +321,19 @@ registration on the Handler`,
 			if err != nil {
 				ctx.Fatalf("Invalid AppSKey: %s", err)
 			}
+			if reflect.DeepEqual(nwkSKey, defaultKey) || reflect.DeepEqual(appSKey, defaultKey) {
+				ctx.Warn("You are using default keys, any attacker can read your data or attack your device's connectivity.")
+			}
 		} else {
 			ctx.Info("Generating random NwkSKey and AppSKey...")
 			nwkSKey = random.Bytes(16)
 			appSKey = random.Bytes(16)
+		}
+
+		var flags uint32
+		if value, _ := cmd.Flags().GetBool("relax-fcnt"); value {
+			flags |= core.RelaxFcntCheck
+			ctx.Warn("You are disabling frame counter checks. Your device is not protected against replay-attacks.")
 		}
 
 		auth, err := util.LoadAuth(viper.GetString("ttn-account-server"))
@@ -319,6 +351,7 @@ registration on the Handler`,
 			DevAddr: devAddr,
 			AppSKey: appSKey,
 			NwkSKey: nwkSKey,
+			Flags:   flags,
 		})
 		if err != nil || res == nil {
 			ctx.WithError(err).Fatal("Could not register device")
@@ -327,6 +360,7 @@ registration on the Handler`,
 			"DevAddr": devAddr,
 			"NwkSKey": nwkSKey,
 			"AppSKey": appSKey,
+			"Flags":   flags,
 		}).Info("Registered personalized device")
 	},
 }
@@ -385,4 +419,5 @@ func init() {
 	devicesCmd.AddCommand(devicesInfoCmd)
 	devicesRegisterCmd.AddCommand(devicesRegisterPersonalizedCmd)
 	devicesRegisterCmd.AddCommand(devicesRegisterDefaultCmd)
+	devicesRegisterPersonalizedCmd.Flags().Bool("relax-fcnt", false, "Allow frame counter to reset (insecure)")
 }
