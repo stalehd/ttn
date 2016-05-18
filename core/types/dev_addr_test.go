@@ -60,6 +60,6 @@ func TestDevAddr(t *testing.T) {
 
 	// IsEmpty
 	var empty DevAddr
-	a.So(empty.IsEmpty(), ShouldEqual, true)
-	a.So(addr.IsEmpty(), ShouldEqual, false)
+	a.So(empty.IsEmpty(), ShouldBeTrue)
+	a.So(addr.IsEmpty(), ShouldBeFalse)
 }

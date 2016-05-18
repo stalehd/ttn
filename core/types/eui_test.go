@@ -60,8 +60,8 @@ func TestEUI64(t *testing.T) {
 
 	// IsEmpty
 	var empty EUI64
-	a.So(empty.IsEmpty(), ShouldEqual, true)
-	a.So(eui.IsEmpty(), ShouldEqual, false)
+	a.So(empty.IsEmpty(), ShouldBeTrue)
+	a.So(eui.IsEmpty(), ShouldBeFalse)
 }
 
 func TestAppEUI(t *testing.T) {
@@ -118,8 +118,8 @@ func TestAppEUI(t *testing.T) {
 
 	// IsEmpty
 	var empty AppEUI
-	a.So(empty.IsEmpty(), ShouldEqual, true)
-	a.So(eui.IsEmpty(), ShouldEqual, false)
+	a.So(empty.IsEmpty(), ShouldBeTrue)
+	a.So(eui.IsEmpty(), ShouldBeFalse)
 }
 
 func TestDevEUI(t *testing.T) {
@@ -176,8 +176,8 @@ func TestDevEUI(t *testing.T) {
 
 	// IsEmpty
 	var empty DevEUI
-	a.So(empty.IsEmpty(), ShouldEqual, true)
-	a.So(eui.IsEmpty(), ShouldEqual, false)
+	a.So(empty.IsEmpty(), ShouldBeTrue)
+	a.So(eui.IsEmpty(), ShouldBeFalse)
 }
 
 func TestGatewayEUI(t *testing.T) {
@@ -234,6 +234,6 @@ func TestGatewayEUI(t *testing.T) {
 
 	// IsEmpty
 	var empty GatewayEUI
-	a.So(empty.IsEmpty(), ShouldEqual, true)
-	a.So(eui.IsEmpty(), ShouldEqual, false)
+	a.So(empty.IsEmpty(), ShouldBeTrue)
+	a.So(eui.IsEmpty(), ShouldBeFalse)
 }
