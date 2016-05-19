@@ -4,12 +4,13 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/TheThingsNetwork/ttn/core"
-	"github.com/TheThingsNetwork/ttn/core/components/handler"
+	"github.com/TheThingsNetwork/ttn/core/types"
 	"github.com/TheThingsNetwork/ttn/ttnctl/util"
 	"github.com/TheThingsNetwork/ttn/utils/random"
 	"github.com/apex/log"
@@ -22,14 +23,6 @@ import (
 const emptyCell = "-"
 
 var defaultKey = []byte{0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C}
-
-func getHandlerManager() core.AuthHandlerClient {
-	cli, err := handler.NewClient(viper.GetString("ttn-handler"))
-	if err != nil {
-		ctx.Fatalf("Could not connect: %v", err)
-	}
-	return cli
-}
 
 // devicesCmd represents the `devices` command
 var devicesCmd = &cobra.Command{
@@ -49,26 +42,26 @@ registered on the Handler.`,
 			ctx.Fatal("No authentication found. Please login")
 		}
 
-		manager := getHandlerManager()
+		manager := util.GetHandlerManager(ctx)
 		defaultDevice, err := manager.GetDefaultDevice(context.Background(), &core.GetDefaultDeviceReq{
 			Token:  auth.AccessToken,
-			AppEUI: appEUI,
+			AppEUI: appEUI.Bytes(),
 		})
 		if err != nil {
-			// TODO: Check reason
+			// TODO: Check reason; not found is OK here
 			defaultDevice = nil
 		}
 		if defaultDevice != nil {
 			ctx.Warn("Application activates new devices with default AppKey")
 			fmt.Printf("Default AppKey:  %X\n", defaultDevice.AppKey)
-			fmt.Printf("                 {%s}\n", cStyle(defaultDevice.AppKey))
+			fmt.Printf("                 {%s}\n", cStyle(defaultDevice.AppKey, msbf))
 		} else {
 			ctx.Info("Application does not activate new devices with default AppKey")
 		}
 
 		devices, err := manager.ListDevices(context.Background(), &core.ListDevicesHandlerReq{
 			Token:  auth.AccessToken,
-			AppEUI: appEUI,
+			AppEUI: appEUI.Bytes(),
 		})
 		if err != nil {
 			ctx.WithError(err).Fatal("Could not get device list")
@@ -113,6 +106,11 @@ registered on the Handler.`,
 	},
 }
 
+const (
+	msbf = true
+	lsbf = false
+)
+
 // devicesInfoCmd represents the `devices info` command
 var devicesInfoCmd = &cobra.Command{
 	Use:   "info [DevAddr|DevEUI]",
@@ -133,31 +131,50 @@ var devicesInfoCmd = &cobra.Command{
 			ctx.Fatal("No authentication found. Please login")
 		}
 
-		manager := getHandlerManager()
+		manager := util.GetHandlerManager(ctx)
 		res, err := manager.ListDevices(context.Background(), &core.ListDevicesHandlerReq{
 			Token:  auth.AccessToken,
-			AppEUI: appEUI,
+			AppEUI: appEUI.Bytes(),
 		})
 		if err != nil {
 			ctx.WithError(err).Fatal("Could not get device list")
 		}
 
-		if devEUI, err := util.Parse64(args[0]); err == nil {
+		lmic, _ := cmd.Flags().GetBool("lmic")
+
+		if devEUI, err := types.ParseDevEUI(args[0]); err == nil {
 			for _, device := range res.OTAA {
-				if reflect.DeepEqual(device.DevEUI, devEUI) {
+				if bytes.Equal(device.DevEUI, devEUI.Bytes()) {
 					fmt.Println("Dynamic device:")
 
 					fmt.Println()
-					fmt.Printf("  AppEUI:  %X\n", appEUI)
-					fmt.Printf("           {%s}\n", cStyle(appEUI))
+
+					// LMiC decided to use LSBF for AppEUI and call it ArtEUI
+					if lmic {
+						fmt.Printf("  AppEUI:  %X (sometimes called ArtEUI)\n", appEUI)
+						fmt.Printf("           {%s} (Note: LSBF)\n", cStyle(appEUI.Bytes(), lsbf))
+					} else {
+						fmt.Printf("  AppEUI:  %X\n", appEUI)
+						fmt.Printf("           {%s}\n", cStyle(appEUI.Bytes(), msbf))
+					}
 
 					fmt.Println()
 					fmt.Printf("  DevEUI:  %X\n", device.DevEUI)
-					fmt.Printf("           {%s}\n", cStyle(device.DevEUI))
+					// LMiC decided to use LSBF for DevEUI
+					if lmic {
+						fmt.Printf("           {%s} (Note: LSBF)\n", cStyle(device.DevEUI, lsbf))
+					} else {
+						fmt.Printf("           {%s}\n", cStyle(device.DevEUI, msbf))
+					}
 
 					fmt.Println()
-					fmt.Printf("  AppKey:  %X\n", device.AppKey)
-					fmt.Printf("           {%s}\n", cStyle(device.AppKey))
+					// LMiC decided to rename AppKey to DevKey
+					if lmic {
+						fmt.Printf("  AppKey:  %X (sometimes called DevKey)\n", device.AppKey)
+					} else {
+						fmt.Printf("  AppKey:  %X\n", device.AppKey)
+					}
+					fmt.Printf("           {%s}\n", cStyle(device.AppKey, msbf))
 
 					if len(device.DevAddr) != 0 {
 						fmt.Println()
@@ -165,15 +182,20 @@ var devicesInfoCmd = &cobra.Command{
 
 						fmt.Println()
 						fmt.Printf("  DevAddr: %X\n", device.DevAddr)
-						fmt.Printf("           {%s}\n", cStyle(device.DevAddr))
+						fmt.Printf("           {%s}\n", cStyle(device.DevAddr, msbf))
 
 						fmt.Println()
 						fmt.Printf("  NwkSKey: %X\n", device.NwkSKey)
-						fmt.Printf("           {%s}\n", cStyle(device.NwkSKey))
+						fmt.Printf("           {%s}\n", cStyle(device.NwkSKey, msbf))
 
 						fmt.Println()
-						fmt.Printf("  AppSKey: %X\n", device.AppSKey)
-						fmt.Printf("           {%s}\n", cStyle(device.AppSKey))
+						// LMiC decided to rename AppSKey to ArtSKey
+						if lmic {
+							fmt.Printf("  AppSKey:  %X (sometimes called ArtSKey)\n", device.AppSKey)
+						} else {
+							fmt.Printf("  AppSKey:  %X\n", device.AppSKey)
+						}
+						fmt.Printf("           {%s}\n", cStyle(device.AppSKey, msbf))
 
 						fmt.Println()
 						fmt.Printf("  FCntUp:  %d\n  FCntDn:  %d\n", device.FCntUp, device.FCntDown)
@@ -187,22 +209,27 @@ var devicesInfoCmd = &cobra.Command{
 			}
 		}
 
-		if devAddr, err := util.Parse32(args[0]); err == nil {
+		if devAddr, err := types.ParseDevAddr(args[0]); err == nil {
 			for _, device := range res.ABP {
-				if reflect.DeepEqual(device.DevAddr, devAddr) {
+				if bytes.Equal(device.DevAddr, devAddr.Bytes()) {
 					fmt.Println("Personalized device:")
 
 					fmt.Println()
 					fmt.Printf("  DevAddr: %X\n", device.DevAddr)
-					fmt.Printf("           {%s}\n", cStyle(device.DevAddr))
+					fmt.Printf("           {%s}\n", cStyle(device.DevAddr, msbf))
 
 					fmt.Println()
 					fmt.Printf("  NwkSKey: %X\n", device.NwkSKey)
-					fmt.Printf("           {%s}\n", cStyle(device.NwkSKey))
+					fmt.Printf("           {%s}\n", cStyle(device.NwkSKey, msbf))
 
 					fmt.Println()
-					fmt.Printf("  AppSKey: %X\n", device.AppSKey)
-					fmt.Printf("           {%s}\n", cStyle(device.AppSKey))
+					// LMiC decided to rename AppSKey to ArtSKey
+					if lmic {
+						fmt.Printf("  AppSKey:  %X (sometimes called ArtSKey)\n", device.AppSKey)
+					} else {
+						fmt.Printf("  AppSKey:  %X\n", device.AppSKey)
+					}
+					fmt.Printf("           {%s}\n", cStyle(device.AppSKey, msbf))
 
 					fmt.Println()
 					fmt.Printf("  FCntUp:  %d\n  FCntDn:  %d\n", device.FCntUp, device.FCntDown)
@@ -227,12 +254,23 @@ var devicesInfoCmd = &cobra.Command{
 	},
 }
 
-func cStyle(bytes []byte) (output string) {
+func cStyle(bytes []byte, msbf bool) (output string) {
+	if !msbf {
+		bytes = reverse(bytes)
+	}
 	for i, b := range bytes {
 		if i != 0 {
 			output += ", "
 		}
 		output += fmt.Sprintf("0x%02X", b)
+	}
+	return
+}
+
+// reverse is used to convert between MSB-first and LSB-first
+func reverse(in []byte) (out []byte) {
+	for i := len(in) - 1; i >= 0; i-- {
+		out = append(out, in[i])
 	}
 	return
 }
@@ -251,20 +289,20 @@ the Handler`,
 
 		appEUI := util.GetAppEUI(ctx)
 
-		devEUI, err := util.Parse64(args[0])
+		devEUI, err := types.ParseDevEUI(args[0])
 		if err != nil {
 			ctx.Fatalf("Invalid DevEUI: %s", err)
 		}
 
-		var appKey []byte
+		var appKey types.AppKey
 		if len(args) >= 2 {
-			appKey, err = util.Parse128(args[1])
+			appKey, err = types.ParseAppKey(args[1])
 			if err != nil {
 				ctx.Fatalf("Invalid AppKey: %s", err)
 			}
 		} else {
 			ctx.Info("Generating random AppKey...")
-			appKey = random.Bytes(16)
+			copy(appKey[:], random.Bytes(16))
 		}
 
 		auth, err := util.LoadAuth(viper.GetString("ttn-account-server"))
@@ -275,12 +313,12 @@ the Handler`,
 			ctx.Fatal("No authentication found. Please login")
 		}
 
-		manager := getHandlerManager()
+		manager := util.GetHandlerManager(ctx)
 		res, err := manager.UpsertOTAA(context.Background(), &core.UpsertOTAAHandlerReq{
 			Token:  auth.AccessToken,
-			AppEUI: appEUI,
-			DevEUI: devEUI,
-			AppKey: appKey,
+			AppEUI: appEUI.Bytes(),
+			DevEUI: devEUI.Bytes(),
+			AppKey: appKey.Bytes(),
 		})
 		if err != nil || res == nil {
 			ctx.WithError(err).Fatal("Could not register device")
@@ -306,28 +344,29 @@ registration on the Handler`,
 
 		appEUI := util.GetAppEUI(ctx)
 
-		devAddr, err := util.Parse32(args[0])
+		devAddr, err := types.ParseDevAddr(args[0])
 		if err != nil {
 			ctx.Fatalf("Invalid DevAddr: %s", err)
 		}
 
-		var nwkSKey, appSKey []byte
+		var nwkSKey types.NwkSKey
+		var appSKey types.AppSKey
 		if len(args) >= 3 {
-			nwkSKey, err = util.Parse128(args[1])
+			nwkSKey, err = types.ParseNwkSKey(args[1])
 			if err != nil {
 				ctx.Fatalf("Invalid NwkSKey: %s", err)
 			}
-			appSKey, err = util.Parse128(args[2])
+			appSKey, err = types.ParseAppSKey(args[2])
 			if err != nil {
 				ctx.Fatalf("Invalid AppSKey: %s", err)
 			}
-			if reflect.DeepEqual(nwkSKey, defaultKey) || reflect.DeepEqual(appSKey, defaultKey) {
+			if reflect.DeepEqual(nwkSKey.Bytes(), defaultKey) || reflect.DeepEqual(appSKey.Bytes(), defaultKey) {
 				ctx.Warn("You are using default keys, any attacker can read your data or attack your device's connectivity.")
 			}
 		} else {
 			ctx.Info("Generating random NwkSKey and AppSKey...")
-			nwkSKey = random.Bytes(16)
-			appSKey = random.Bytes(16)
+			copy(nwkSKey[:], random.Bytes(16))
+			copy(appSKey[:], random.Bytes(16))
 		}
 
 		var flags uint32
@@ -344,13 +383,13 @@ registration on the Handler`,
 			ctx.Fatal("No authentication found. Please login")
 		}
 
-		manager := getHandlerManager()
+		manager := util.GetHandlerManager(ctx)
 		res, err := manager.UpsertABP(context.Background(), &core.UpsertABPHandlerReq{
 			Token:   auth.AccessToken,
-			AppEUI:  appEUI,
-			DevAddr: devAddr,
-			AppSKey: appSKey,
-			NwkSKey: nwkSKey,
+			AppEUI:  appEUI.Bytes(),
+			DevAddr: devAddr.Bytes(),
+			AppSKey: appSKey.Bytes(),
+			NwkSKey: nwkSKey.Bytes(),
 			Flags:   flags,
 		})
 		if err != nil || res == nil {
@@ -380,16 +419,16 @@ register [DevEUI] [AppKey]`,
 
 		appEUI := util.GetAppEUI(ctx)
 
-		var appKey []byte
+		var appKey types.AppKey
 		var err error
 		if len(args) >= 2 {
-			appKey, err = util.Parse128(args[0])
+			appKey, err = types.ParseAppKey(args[0])
 			if err != nil {
 				ctx.Fatalf("Invalid AppKey: %s", err)
 			}
 		} else {
 			ctx.Info("Generating random AppKey...")
-			appKey = random.Bytes(16)
+			copy(appKey[:], random.Bytes(16))
 		}
 
 		auth, err := util.LoadAuth(viper.GetString("ttn-account-server"))
@@ -400,11 +439,11 @@ register [DevEUI] [AppKey]`,
 			ctx.Fatal("No authentication found. Please login")
 		}
 
-		manager := getHandlerManager()
+		manager := util.GetHandlerManager(ctx)
 		res, err := manager.SetDefaultDevice(context.Background(), &core.SetDefaultDeviceReq{
 			Token:  auth.AccessToken,
-			AppEUI: appEUI,
-			AppKey: appKey,
+			AppEUI: appEUI.Bytes(),
+			AppKey: appKey.Bytes(),
 		})
 		if err != nil || res == nil {
 			ctx.WithError(err).Fatal("Could not set default device settings")
@@ -417,6 +456,7 @@ func init() {
 	RootCmd.AddCommand(devicesCmd)
 	devicesCmd.AddCommand(devicesRegisterCmd)
 	devicesCmd.AddCommand(devicesInfoCmd)
+	devicesInfoCmd.Flags().Bool("lmic", false, "Print info for LMiC")
 	devicesRegisterCmd.AddCommand(devicesRegisterPersonalizedCmd)
 	devicesRegisterCmd.AddCommand(devicesRegisterDefaultCmd)
 	devicesRegisterPersonalizedCmd.Flags().Bool("relax-fcnt", false, "Allow frame counter to reset (insecure)")

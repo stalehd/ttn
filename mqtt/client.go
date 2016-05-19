@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/TheThingsNetwork/ttn/core"
+	"github.com/TheThingsNetwork/ttn/core/types"
 	"github.com/TheThingsNetwork/ttn/utils/random"
 	"github.com/apex/log"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
@@ -24,21 +25,21 @@ type Client interface {
 	IsConnected() bool
 
 	// Uplink pub/sub
-	PublishUplink(appEUI []byte, devEUI []byte, payload core.DataUpAppReq) Token
-	SubscribeDeviceUplink(appEUI []byte, devEUI []byte, handler UplinkHandler) Token
-	SubscribeAppUplink(appEUI []byte, handler UplinkHandler) Token
+	PublishUplink(appEUI types.AppEUI, devEUI types.DevEUI, payload core.DataUpAppReq) Token
+	SubscribeDeviceUplink(appEUI types.AppEUI, devEUI types.DevEUI, handler UplinkHandler) Token
+	SubscribeAppUplink(appEUI types.AppEUI, handler UplinkHandler) Token
 	SubscribeUplink(handler UplinkHandler) Token
 
 	// Downlink pub/sub
-	PublishDownlink(appEUI []byte, devEUI []byte, payload core.DataDownAppReq) Token
-	SubscribeDeviceDownlink(appEUI []byte, devEUI []byte, handler DownlinkHandler) Token
-	SubscribeAppDownlink(appEUI []byte, handler DownlinkHandler) Token
+	PublishDownlink(appEUI types.AppEUI, devEUI types.DevEUI, payload core.DataDownAppReq) Token
+	SubscribeDeviceDownlink(appEUI types.AppEUI, devEUI types.DevEUI, handler DownlinkHandler) Token
+	SubscribeAppDownlink(appEUI types.AppEUI, handler DownlinkHandler) Token
 	SubscribeDownlink(handler DownlinkHandler) Token
 
 	// Activation pub/sub
-	PublishActivation(appEUI []byte, devEUI []byte, payload core.OTAAAppReq) Token
-	SubscribeDeviceActivations(appEUI []byte, devEUI []byte, handler ActivationHandler) Token
-	SubscribeAppActivations(appEUI []byte, handler ActivationHandler) Token
+	PublishActivation(appEUI types.AppEUI, devEUI types.DevEUI, payload core.OTAAAppReq) Token
+	SubscribeDeviceActivations(appEUI types.AppEUI, devEUI types.DevEUI, handler ActivationHandler) Token
+	SubscribeAppActivations(appEUI types.AppEUI, handler ActivationHandler) Token
 	SubscribeActivations(handler ActivationHandler) Token
 }
 
@@ -67,9 +68,9 @@ func (t *simpleToken) Error() error {
 	return t.err
 }
 
-type UplinkHandler func(client Client, appEUI []byte, devEUI []byte, req core.DataUpAppReq)
-type DownlinkHandler func(client Client, appEUI []byte, devEUI []byte, req core.DataDownAppReq)
-type ActivationHandler func(client Client, appEUI []byte, devEUI []byte, req core.OTAAAppReq)
+type UplinkHandler func(client Client, appEUI types.AppEUI, devEUI types.DevEUI, req core.DataUpAppReq)
+type DownlinkHandler func(client Client, appEUI types.AppEUI, devEUI types.DevEUI, req core.DataDownAppReq)
+type ActivationHandler func(client Client, appEUI types.AppEUI, devEUI types.DevEUI, req core.OTAAAppReq)
 
 type defaultClient struct {
 	mqtt MQTT.Client
@@ -96,21 +97,15 @@ func NewClient(ctx log.Interface, id, username, password string, brokers ...stri
 	mqttOpts.SetCleanSession(false)
 
 	mqttOpts.SetDefaultPublishHandler(func(client MQTT.Client, msg MQTT.Message) {
-		if ctx != nil {
-			ctx.WithField("message", msg).Warn("Received unhandled message")
-		}
+		ctx.WithField("message", msg).Warn("Received unhandled message")
 	})
 
 	mqttOpts.SetConnectionLostHandler(func(client MQTT.Client, err error) {
-		if ctx != nil {
-			ctx.WithError(err).Warn("Disconnected, reconnecting...")
-		}
+		ctx.WithError(err).Warn("Disconnected, reconnecting...")
 	})
 
 	mqttOpts.SetOnConnectHandler(func(client MQTT.Client) {
-		if ctx != nil {
-			ctx.Debug("Connected")
-		}
+		ctx.Debug("Connected")
 	})
 
 	return &defaultClient{
@@ -140,7 +135,7 @@ func (c *defaultClient) IsConnected() bool {
 	return c.mqtt.IsConnected()
 }
 
-func (c *defaultClient) PublishUplink(appEUI []byte, devEUI []byte, dataUp core.DataUpAppReq) Token {
+func (c *defaultClient) PublishUplink(appEUI types.AppEUI, devEUI types.DevEUI, dataUp core.DataUpAppReq) Token {
 	topic := DeviceTopic{appEUI, devEUI, Uplink}
 	msg, err := json.Marshal(dataUp)
 	if err != nil {
@@ -149,15 +144,13 @@ func (c *defaultClient) PublishUplink(appEUI []byte, devEUI []byte, dataUp core.
 	return c.mqtt.Publish(topic.String(), QoS, false, msg)
 }
 
-func (c *defaultClient) SubscribeDeviceUplink(appEUI []byte, devEUI []byte, handler UplinkHandler) Token {
+func (c *defaultClient) SubscribeDeviceUplink(appEUI types.AppEUI, devEUI types.DevEUI, handler UplinkHandler) Token {
 	topic := DeviceTopic{appEUI, devEUI, Uplink}
 	return c.mqtt.Subscribe(topic.String(), QoS, func(mqtt MQTT.Client, msg MQTT.Message) {
 		// Determine the actual topic
 		topic, err := ParseDeviceTopic(msg.Topic())
 		if err != nil {
-			if c.ctx != nil {
-				c.ctx.WithField("topic", msg.Topic()).WithError(err).Warn("Received message on invalid uplink topic")
-			}
+			c.ctx.WithField("topic", msg.Topic()).WithError(err).Warn("Received message on invalid uplink topic")
 			return
 		}
 
@@ -166,9 +159,7 @@ func (c *defaultClient) SubscribeDeviceUplink(appEUI []byte, devEUI []byte, hand
 		err = json.Unmarshal(msg.Payload(), dataUp)
 
 		if err != nil {
-			if c.ctx != nil {
-				c.ctx.WithError(err).Warn("Could not unmarshal uplink")
-			}
+			c.ctx.WithError(err).Warn("Could not unmarshal uplink")
 			return
 		}
 
@@ -177,15 +168,15 @@ func (c *defaultClient) SubscribeDeviceUplink(appEUI []byte, devEUI []byte, hand
 	})
 }
 
-func (c *defaultClient) SubscribeAppUplink(appEUI []byte, handler UplinkHandler) Token {
-	return c.SubscribeDeviceUplink(appEUI, []byte{}, handler)
+func (c *defaultClient) SubscribeAppUplink(appEUI types.AppEUI, handler UplinkHandler) Token {
+	return c.SubscribeDeviceUplink(appEUI, types.DevEUI{}, handler)
 }
 
 func (c *defaultClient) SubscribeUplink(handler UplinkHandler) Token {
-	return c.SubscribeDeviceUplink([]byte{}, []byte{}, handler)
+	return c.SubscribeDeviceUplink(types.AppEUI{}, types.DevEUI{}, handler)
 }
 
-func (c *defaultClient) PublishDownlink(appEUI []byte, devEUI []byte, dataDown core.DataDownAppReq) Token {
+func (c *defaultClient) PublishDownlink(appEUI types.AppEUI, devEUI types.DevEUI, dataDown core.DataDownAppReq) Token {
 	topic := DeviceTopic{appEUI, devEUI, Downlink}
 	msg, err := json.Marshal(dataDown)
 	if err != nil {
@@ -194,15 +185,13 @@ func (c *defaultClient) PublishDownlink(appEUI []byte, devEUI []byte, dataDown c
 	return c.mqtt.Publish(topic.String(), QoS, false, msg)
 }
 
-func (c *defaultClient) SubscribeDeviceDownlink(appEUI []byte, devEUI []byte, handler DownlinkHandler) Token {
+func (c *defaultClient) SubscribeDeviceDownlink(appEUI types.AppEUI, devEUI types.DevEUI, handler DownlinkHandler) Token {
 	topic := DeviceTopic{appEUI, devEUI, Downlink}
 	return c.mqtt.Subscribe(topic.String(), QoS, func(mqtt MQTT.Client, msg MQTT.Message) {
 		// Determine the actual topic
 		topic, err := ParseDeviceTopic(msg.Topic())
 		if err != nil {
-			if c.ctx != nil {
-				c.ctx.WithField("topic", msg.Topic()).WithError(err).Warn("Received message on invalid Downlink topic")
-			}
+			c.ctx.WithField("topic", msg.Topic()).WithError(err).Warn("Received message on invalid Downlink topic")
 			return
 		}
 
@@ -210,9 +199,7 @@ func (c *defaultClient) SubscribeDeviceDownlink(appEUI []byte, devEUI []byte, ha
 		dataDown := &core.DataDownAppReq{}
 		err = json.Unmarshal(msg.Payload(), dataDown)
 		if err != nil {
-			if c.ctx != nil {
-				c.ctx.WithError(err).Warn("Could not unmarshal Downlink")
-			}
+			c.ctx.WithError(err).Warn("Could not unmarshal Downlink")
 			return
 		}
 
@@ -221,15 +208,15 @@ func (c *defaultClient) SubscribeDeviceDownlink(appEUI []byte, devEUI []byte, ha
 	})
 }
 
-func (c *defaultClient) SubscribeAppDownlink(appEUI []byte, handler DownlinkHandler) Token {
-	return c.SubscribeDeviceDownlink(appEUI, []byte{}, handler)
+func (c *defaultClient) SubscribeAppDownlink(appEUI types.AppEUI, handler DownlinkHandler) Token {
+	return c.SubscribeDeviceDownlink(appEUI, types.DevEUI{}, handler)
 }
 
 func (c *defaultClient) SubscribeDownlink(handler DownlinkHandler) Token {
-	return c.SubscribeDeviceDownlink([]byte{}, []byte{}, handler)
+	return c.SubscribeDeviceDownlink(types.AppEUI{}, types.DevEUI{}, handler)
 }
 
-func (c *defaultClient) PublishActivation(appEUI []byte, devEUI []byte, activation core.OTAAAppReq) Token {
+func (c *defaultClient) PublishActivation(appEUI types.AppEUI, devEUI types.DevEUI, activation core.OTAAAppReq) Token {
 	topic := DeviceTopic{appEUI, devEUI, Activations}
 	msg, err := json.Marshal(activation)
 	if err != nil {
@@ -238,15 +225,13 @@ func (c *defaultClient) PublishActivation(appEUI []byte, devEUI []byte, activati
 	return c.mqtt.Publish(topic.String(), QoS, false, msg)
 }
 
-func (c *defaultClient) SubscribeDeviceActivations(appEUI []byte, devEUI []byte, handler ActivationHandler) Token {
+func (c *defaultClient) SubscribeDeviceActivations(appEUI types.AppEUI, devEUI types.DevEUI, handler ActivationHandler) Token {
 	topic := DeviceTopic{appEUI, devEUI, Activations}
 	return c.mqtt.Subscribe(topic.String(), QoS, func(mqtt MQTT.Client, msg MQTT.Message) {
 		// Determine the actual topic
 		topic, err := ParseDeviceTopic(msg.Topic())
 		if err != nil {
-			if c.ctx != nil {
-				c.ctx.WithField("topic", msg.Topic()).WithError(err).Warn("Received message on invalid Activations topic")
-			}
+			c.ctx.WithField("topic", msg.Topic()).WithError(err).Warn("Received message on invalid Activations topic")
 			return
 		}
 
@@ -254,9 +239,7 @@ func (c *defaultClient) SubscribeDeviceActivations(appEUI []byte, devEUI []byte,
 		activation := &core.OTAAAppReq{}
 		err = json.Unmarshal(msg.Payload(), activation)
 		if err != nil {
-			if c.ctx != nil {
-				c.ctx.WithError(err).Warn("Could not unmarshal Activation")
-			}
+			c.ctx.WithError(err).Warn("Could not unmarshal Activation")
 			return
 		}
 
@@ -265,10 +248,10 @@ func (c *defaultClient) SubscribeDeviceActivations(appEUI []byte, devEUI []byte,
 	})
 }
 
-func (c *defaultClient) SubscribeAppActivations(appEUI []byte, handler ActivationHandler) Token {
-	return c.SubscribeDeviceActivations(appEUI, []byte{}, handler)
+func (c *defaultClient) SubscribeAppActivations(appEUI types.AppEUI, handler ActivationHandler) Token {
+	return c.SubscribeDeviceActivations(appEUI, types.DevEUI{}, handler)
 }
 
 func (c *defaultClient) SubscribeActivations(handler ActivationHandler) Token {
-	return c.SubscribeDeviceActivations([]byte{}, []byte{}, handler)
+	return c.SubscribeDeviceActivations(types.AppEUI{}, types.DevEUI{}, handler)
 }

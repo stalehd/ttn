@@ -173,6 +173,81 @@ func (*SetDefaultDeviceReq) Descriptor() ([]byte, []int) {
 	return fileDescriptorHandlerManager, []int{10}
 }
 
+type GetPayloadFunctionsReq struct {
+	Token  string `protobuf:"bytes,1,opt,name=Token,json=token,proto3" json:"Token,omitempty"`
+	AppEUI []byte `protobuf:"bytes,2,opt,name=AppEUI,json=appEUI,proto3" json:"AppEUI,omitempty"`
+}
+
+func (m *GetPayloadFunctionsReq) Reset()         { *m = GetPayloadFunctionsReq{} }
+func (m *GetPayloadFunctionsReq) String() string { return proto.CompactTextString(m) }
+func (*GetPayloadFunctionsReq) ProtoMessage()    {}
+func (*GetPayloadFunctionsReq) Descriptor() ([]byte, []int) {
+	return fileDescriptorHandlerManager, []int{11}
+}
+
+type GetPayloadFunctionsRes struct {
+	Decoder   string `protobuf:"bytes,1,opt,name=Decoder,json=decoder,proto3" json:"Decoder,omitempty"`
+	Converter string `protobuf:"bytes,2,opt,name=Converter,json=converter,proto3" json:"Converter,omitempty"`
+	Validator string `protobuf:"bytes,3,opt,name=Validator,json=validator,proto3" json:"Validator,omitempty"`
+}
+
+func (m *GetPayloadFunctionsRes) Reset()         { *m = GetPayloadFunctionsRes{} }
+func (m *GetPayloadFunctionsRes) String() string { return proto.CompactTextString(m) }
+func (*GetPayloadFunctionsRes) ProtoMessage()    {}
+func (*GetPayloadFunctionsRes) Descriptor() ([]byte, []int) {
+	return fileDescriptorHandlerManager, []int{12}
+}
+
+type SetPayloadFunctionsReq struct {
+	Token     string `protobuf:"bytes,1,opt,name=Token,json=token,proto3" json:"Token,omitempty"`
+	AppEUI    []byte `protobuf:"bytes,2,opt,name=AppEUI,json=appEUI,proto3" json:"AppEUI,omitempty"`
+	Decoder   string `protobuf:"bytes,11,opt,name=Decoder,json=decoder,proto3" json:"Decoder,omitempty"`
+	Converter string `protobuf:"bytes,12,opt,name=Converter,json=converter,proto3" json:"Converter,omitempty"`
+	Validator string `protobuf:"bytes,13,opt,name=Validator,json=validator,proto3" json:"Validator,omitempty"`
+}
+
+func (m *SetPayloadFunctionsReq) Reset()         { *m = SetPayloadFunctionsReq{} }
+func (m *SetPayloadFunctionsReq) String() string { return proto.CompactTextString(m) }
+func (*SetPayloadFunctionsReq) ProtoMessage()    {}
+func (*SetPayloadFunctionsReq) Descriptor() ([]byte, []int) {
+	return fileDescriptorHandlerManager, []int{13}
+}
+
+type SetPayloadFunctionsRes struct {
+}
+
+func (m *SetPayloadFunctionsRes) Reset()         { *m = SetPayloadFunctionsRes{} }
+func (m *SetPayloadFunctionsRes) String() string { return proto.CompactTextString(m) }
+func (*SetPayloadFunctionsRes) ProtoMessage()    {}
+func (*SetPayloadFunctionsRes) Descriptor() ([]byte, []int) {
+	return fileDescriptorHandlerManager, []int{14}
+}
+
+type TestPayloadFunctionsReq struct {
+	Token   string `protobuf:"bytes,1,opt,name=Token,json=token,proto3" json:"Token,omitempty"`
+	AppEUI  []byte `protobuf:"bytes,2,opt,name=AppEUI,json=appEUI,proto3" json:"AppEUI,omitempty"`
+	Payload []byte `protobuf:"bytes,11,opt,name=Payload,json=payload,proto3" json:"Payload,omitempty"`
+}
+
+func (m *TestPayloadFunctionsReq) Reset()         { *m = TestPayloadFunctionsReq{} }
+func (m *TestPayloadFunctionsReq) String() string { return proto.CompactTextString(m) }
+func (*TestPayloadFunctionsReq) ProtoMessage()    {}
+func (*TestPayloadFunctionsReq) Descriptor() ([]byte, []int) {
+	return fileDescriptorHandlerManager, []int{15}
+}
+
+type TestPayloadFunctionsRes struct {
+	Fields string `protobuf:"bytes,1,opt,name=Fields,json=fields,proto3" json:"Fields,omitempty"`
+	Valid  bool   `protobuf:"varint,2,opt,name=Valid,json=valid,proto3" json:"Valid,omitempty"`
+}
+
+func (m *TestPayloadFunctionsRes) Reset()         { *m = TestPayloadFunctionsRes{} }
+func (m *TestPayloadFunctionsRes) String() string { return proto.CompactTextString(m) }
+func (*TestPayloadFunctionsRes) ProtoMessage()    {}
+func (*TestPayloadFunctionsRes) Descriptor() ([]byte, []int) {
+	return fileDescriptorHandlerManager, []int{16}
+}
+
 type SetDefaultDeviceRes struct {
 }
 
@@ -180,7 +255,7 @@ func (m *SetDefaultDeviceRes) Reset()         { *m = SetDefaultDeviceRes{} }
 func (m *SetDefaultDeviceRes) String() string { return proto.CompactTextString(m) }
 func (*SetDefaultDeviceRes) ProtoMessage()    {}
 func (*SetDefaultDeviceRes) Descriptor() ([]byte, []int) {
-	return fileDescriptorHandlerManager, []int{11}
+	return fileDescriptorHandlerManager, []int{17}
 }
 
 func init() {
@@ -195,6 +270,12 @@ func init() {
 	proto.RegisterType((*GetDefaultDeviceReq)(nil), "core.GetDefaultDeviceReq")
 	proto.RegisterType((*GetDefaultDeviceRes)(nil), "core.GetDefaultDeviceRes")
 	proto.RegisterType((*SetDefaultDeviceReq)(nil), "core.SetDefaultDeviceReq")
+	proto.RegisterType((*GetPayloadFunctionsReq)(nil), "core.GetPayloadFunctionsReq")
+	proto.RegisterType((*GetPayloadFunctionsRes)(nil), "core.GetPayloadFunctionsRes")
+	proto.RegisterType((*SetPayloadFunctionsReq)(nil), "core.SetPayloadFunctionsReq")
+	proto.RegisterType((*SetPayloadFunctionsRes)(nil), "core.SetPayloadFunctionsRes")
+	proto.RegisterType((*TestPayloadFunctionsReq)(nil), "core.TestPayloadFunctionsReq")
+	proto.RegisterType((*TestPayloadFunctionsRes)(nil), "core.TestPayloadFunctionsRes")
 	proto.RegisterType((*SetDefaultDeviceRes)(nil), "core.SetDefaultDeviceRes")
 }
 
@@ -214,6 +295,9 @@ type HandlerManagerClient interface {
 	ListDevices(ctx context.Context, in *ListDevicesHandlerReq, opts ...grpc.CallOption) (*ListDevicesHandlerRes, error)
 	GetDefaultDevice(ctx context.Context, in *GetDefaultDeviceReq, opts ...grpc.CallOption) (*GetDefaultDeviceRes, error)
 	SetDefaultDevice(ctx context.Context, in *SetDefaultDeviceReq, opts ...grpc.CallOption) (*SetDefaultDeviceRes, error)
+	GetPayloadFunctions(ctx context.Context, in *GetPayloadFunctionsReq, opts ...grpc.CallOption) (*GetPayloadFunctionsRes, error)
+	SetPayloadFunctions(ctx context.Context, in *SetPayloadFunctionsReq, opts ...grpc.CallOption) (*SetPayloadFunctionsRes, error)
+	TestPayloadFunctions(ctx context.Context, in *TestPayloadFunctionsReq, opts ...grpc.CallOption) (*TestPayloadFunctionsRes, error)
 }
 
 type handlerManagerClient struct {
@@ -269,6 +353,33 @@ func (c *handlerManagerClient) SetDefaultDevice(ctx context.Context, in *SetDefa
 	return out, nil
 }
 
+func (c *handlerManagerClient) GetPayloadFunctions(ctx context.Context, in *GetPayloadFunctionsReq, opts ...grpc.CallOption) (*GetPayloadFunctionsRes, error) {
+	out := new(GetPayloadFunctionsRes)
+	err := grpc.Invoke(ctx, "/core.HandlerManager/GetPayloadFunctions", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *handlerManagerClient) SetPayloadFunctions(ctx context.Context, in *SetPayloadFunctionsReq, opts ...grpc.CallOption) (*SetPayloadFunctionsRes, error) {
+	out := new(SetPayloadFunctionsRes)
+	err := grpc.Invoke(ctx, "/core.HandlerManager/SetPayloadFunctions", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *handlerManagerClient) TestPayloadFunctions(ctx context.Context, in *TestPayloadFunctionsReq, opts ...grpc.CallOption) (*TestPayloadFunctionsRes, error) {
+	out := new(TestPayloadFunctionsRes)
+	err := grpc.Invoke(ctx, "/core.HandlerManager/TestPayloadFunctions", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for HandlerManager service
 
 type HandlerManagerServer interface {
@@ -277,6 +388,9 @@ type HandlerManagerServer interface {
 	ListDevices(context.Context, *ListDevicesHandlerReq) (*ListDevicesHandlerRes, error)
 	GetDefaultDevice(context.Context, *GetDefaultDeviceReq) (*GetDefaultDeviceRes, error)
 	SetDefaultDevice(context.Context, *SetDefaultDeviceReq) (*SetDefaultDeviceRes, error)
+	GetPayloadFunctions(context.Context, *GetPayloadFunctionsReq) (*GetPayloadFunctionsRes, error)
+	SetPayloadFunctions(context.Context, *SetPayloadFunctionsReq) (*SetPayloadFunctionsRes, error)
+	TestPayloadFunctions(context.Context, *TestPayloadFunctionsReq) (*TestPayloadFunctionsRes, error)
 }
 
 func RegisterHandlerManagerServer(s *grpc.Server, srv HandlerManagerServer) {
@@ -373,6 +487,60 @@ func _HandlerManager_SetDefaultDevice_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HandlerManager_GetPayloadFunctions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPayloadFunctionsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandlerManagerServer).GetPayloadFunctions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/core.HandlerManager/GetPayloadFunctions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandlerManagerServer).GetPayloadFunctions(ctx, req.(*GetPayloadFunctionsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HandlerManager_SetPayloadFunctions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPayloadFunctionsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandlerManagerServer).SetPayloadFunctions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/core.HandlerManager/SetPayloadFunctions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandlerManagerServer).SetPayloadFunctions(ctx, req.(*SetPayloadFunctionsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HandlerManager_TestPayloadFunctions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestPayloadFunctionsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandlerManagerServer).TestPayloadFunctions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/core.HandlerManager/TestPayloadFunctions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandlerManagerServer).TestPayloadFunctions(ctx, req.(*TestPayloadFunctionsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _HandlerManager_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "core.HandlerManager",
 	HandlerType: (*HandlerManagerServer)(nil),
@@ -396,6 +564,18 @@ var _HandlerManager_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetDefaultDevice",
 			Handler:    _HandlerManager_SetDefaultDevice_Handler,
+		},
+		{
+			MethodName: "GetPayloadFunctions",
+			Handler:    _HandlerManager_GetPayloadFunctions_Handler,
+		},
+		{
+			MethodName: "SetPayloadFunctions",
+			Handler:    _HandlerManager_SetPayloadFunctions_Handler,
+		},
+		{
+			MethodName: "TestPayloadFunctions",
+			Handler:    _HandlerManager_TestPayloadFunctions_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},
@@ -803,6 +983,208 @@ func (m *SetDefaultDeviceReq) MarshalTo(data []byte) (int, error) {
 	return i, nil
 }
 
+func (m *GetPayloadFunctionsReq) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *GetPayloadFunctionsReq) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Token) > 0 {
+		data[i] = 0xa
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Token)))
+		i += copy(data[i:], m.Token)
+	}
+	if len(m.AppEUI) > 0 {
+		data[i] = 0x12
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.AppEUI)))
+		i += copy(data[i:], m.AppEUI)
+	}
+	return i, nil
+}
+
+func (m *GetPayloadFunctionsRes) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *GetPayloadFunctionsRes) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Decoder) > 0 {
+		data[i] = 0xa
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Decoder)))
+		i += copy(data[i:], m.Decoder)
+	}
+	if len(m.Converter) > 0 {
+		data[i] = 0x12
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Converter)))
+		i += copy(data[i:], m.Converter)
+	}
+	if len(m.Validator) > 0 {
+		data[i] = 0x1a
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Validator)))
+		i += copy(data[i:], m.Validator)
+	}
+	return i, nil
+}
+
+func (m *SetPayloadFunctionsReq) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *SetPayloadFunctionsReq) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Token) > 0 {
+		data[i] = 0xa
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Token)))
+		i += copy(data[i:], m.Token)
+	}
+	if len(m.AppEUI) > 0 {
+		data[i] = 0x12
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.AppEUI)))
+		i += copy(data[i:], m.AppEUI)
+	}
+	if len(m.Decoder) > 0 {
+		data[i] = 0x5a
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Decoder)))
+		i += copy(data[i:], m.Decoder)
+	}
+	if len(m.Converter) > 0 {
+		data[i] = 0x62
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Converter)))
+		i += copy(data[i:], m.Converter)
+	}
+	if len(m.Validator) > 0 {
+		data[i] = 0x6a
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Validator)))
+		i += copy(data[i:], m.Validator)
+	}
+	return i, nil
+}
+
+func (m *SetPayloadFunctionsRes) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *SetPayloadFunctionsRes) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
+func (m *TestPayloadFunctionsReq) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *TestPayloadFunctionsReq) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Token) > 0 {
+		data[i] = 0xa
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Token)))
+		i += copy(data[i:], m.Token)
+	}
+	if len(m.AppEUI) > 0 {
+		data[i] = 0x12
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.AppEUI)))
+		i += copy(data[i:], m.AppEUI)
+	}
+	if len(m.Payload) > 0 {
+		data[i] = 0x5a
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Payload)))
+		i += copy(data[i:], m.Payload)
+	}
+	return i, nil
+}
+
+func (m *TestPayloadFunctionsRes) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *TestPayloadFunctionsRes) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Fields) > 0 {
+		data[i] = 0xa
+		i++
+		i = encodeVarintHandlerManager(data, i, uint64(len(m.Fields)))
+		i += copy(data[i:], m.Fields)
+	}
+	if m.Valid {
+		data[i] = 0x10
+		i++
+		if m.Valid {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
+	}
+	return i, nil
+}
+
 func (m *SetDefaultDeviceRes) Marshal() (data []byte, err error) {
 	size := m.Size()
 	data = make([]byte, size)
@@ -1040,6 +1422,101 @@ func (m *SetDefaultDeviceReq) Size() (n int) {
 	l = len(m.AppKey)
 	if l > 0 {
 		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	return n
+}
+
+func (m *GetPayloadFunctionsReq) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Token)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.AppEUI)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	return n
+}
+
+func (m *GetPayloadFunctionsRes) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Decoder)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.Converter)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.Validator)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	return n
+}
+
+func (m *SetPayloadFunctionsReq) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Token)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.AppEUI)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.Decoder)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.Converter)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.Validator)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	return n
+}
+
+func (m *SetPayloadFunctionsRes) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
+func (m *TestPayloadFunctionsReq) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Token)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.AppEUI)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	l = len(m.Payload)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	return n
+}
+
+func (m *TestPayloadFunctionsRes) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Fields)
+	if l > 0 {
+		n += 1 + l + sovHandlerManager(uint64(l))
+	}
+	if m.Valid {
+		n += 2
 	}
 	return n
 }
@@ -2554,6 +3031,740 @@ func (m *SetDefaultDeviceReq) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *GetPayloadFunctionsReq) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHandlerManager
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetPayloadFunctionsReq: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetPayloadFunctionsReq: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Token", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Token = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AppEUI", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AppEUI = append(m.AppEUI[:0], data[iNdEx:postIndex]...)
+			if m.AppEUI == nil {
+				m.AppEUI = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHandlerManager(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetPayloadFunctionsRes) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHandlerManager
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetPayloadFunctionsRes: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetPayloadFunctionsRes: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Decoder", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Decoder = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Converter", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Converter = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Validator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Validator = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHandlerManager(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SetPayloadFunctionsReq) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHandlerManager
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SetPayloadFunctionsReq: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SetPayloadFunctionsReq: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Token", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Token = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AppEUI", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AppEUI = append(m.AppEUI[:0], data[iNdEx:postIndex]...)
+			if m.AppEUI == nil {
+				m.AppEUI = []byte{}
+			}
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Decoder", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Decoder = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Converter", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Converter = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 13:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Validator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Validator = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHandlerManager(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SetPayloadFunctionsRes) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHandlerManager
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SetPayloadFunctionsRes: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SetPayloadFunctionsRes: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHandlerManager(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TestPayloadFunctionsReq) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHandlerManager
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TestPayloadFunctionsReq: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TestPayloadFunctionsReq: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Token", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Token = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AppEUI", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AppEUI = append(m.AppEUI[:0], data[iNdEx:postIndex]...)
+			if m.AppEUI == nil {
+				m.AppEUI = []byte{}
+			}
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Payload", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Payload = append(m.Payload[:0], data[iNdEx:postIndex]...)
+			if m.Payload == nil {
+				m.Payload = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHandlerManager(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TestPayloadFunctionsRes) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHandlerManager
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TestPayloadFunctionsRes: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TestPayloadFunctionsRes: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Fields", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Fields = string(data[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Valid", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHandlerManager
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Valid = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHandlerManager(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHandlerManager
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *SetDefaultDeviceRes) Unmarshal(data []byte) error {
 	l := len(data)
 	iNdEx := 0
@@ -2710,38 +3921,49 @@ var (
 )
 
 var fileDescriptorHandlerManager = []byte{
-	// 520 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xac, 0x54, 0xdd, 0x6e, 0xd3, 0x30,
-	0x14, 0x26, 0xcd, 0x5f, 0x77, 0xc6, 0x50, 0x71, 0xd7, 0x12, 0x82, 0x34, 0xa1, 0x5c, 0x55, 0x42,
-	0xf4, 0x62, 0x3c, 0x41, 0xba, 0xee, 0x07, 0xf1, 0x37, 0xa5, 0xeb, 0x15, 0x17, 0xc8, 0x2c, 0xce,
-	0x98, 0x56, 0x92, 0x10, 0x07, 0x26, 0xde, 0x84, 0x37, 0x40, 0xe2, 0x3d, 0x90, 0xb8, 0xe4, 0x11,
-	0x10, 0xbc, 0x03, 0xd7, 0xd8, 0xb1, 0x59, 0x9d, 0x61, 0x23, 0x51, 0x76, 0x11, 0xa9, 0xdf, 0xf9,
-	0x4e, 0x3f, 0x9f, 0xf3, 0x9d, 0x63, 0xc3, 0xe0, 0x15, 0xce, 0xd3, 0x05, 0xa9, 0x5e, 0xbc, 0xc6,
-	0x39, 0x3e, 0x21, 0xd5, 0xb8, 0xac, 0x8a, 0xba, 0x40, 0xce, 0x71, 0x51, 0x91, 0xa8, 0x86, 0xcd,
-	0x79, 0x49, 0x49, 0x55, 0x3f, 0x3b, 0x8a, 0xe3, 0x03, 0x91, 0x98, 0x90, 0x37, 0x68, 0x13, 0xdc,
-	0xa3, 0xe2, 0x8c, 0xe4, 0x81, 0x75, 0xd7, 0x1a, 0xad, 0x25, 0x6e, 0xcd, 0x01, 0x1a, 0x82, 0x17,
-	0x97, 0xe5, 0xee, 0xfc, 0x61, 0xd0, 0x61, 0xe1, 0xeb, 0x89, 0x87, 0x1b, 0xc4, 0xe3, 0x53, 0xf2,
-	0x8e, 0xc7, 0x6d, 0x11, 0x4f, 0x1b, 0x24, 0xf3, 0x1f, 0x91, 0xf7, 0x81, 0x73, 0x91, 0xcf, 0x50,
-	0x34, 0xd4, 0x9e, 0x4a, 0xa3, 0x8f, 0x16, 0xf4, 0x05, 0x11, 0x4f, 0x0e, 0x57, 0xae, 0x26, 0x00,
-	0x9f, 0x55, 0x13, 0xa7, 0x69, 0x25, 0xcb, 0xf1, 0x53, 0x01, 0x39, 0xf3, 0xf4, 0xfc, 0x6c, 0xb6,
-	0x2c, 0xc8, 0xcf, 0x05, 0xe4, 0x0c, 0xd3, 0x6a, 0x18, 0x57, 0x30, 0x58, 0x40, 0x7e, 0xf6, 0xde,
-	0x02, 0x9f, 0xd0, 0xc0, 0x63, 0xf1, 0x8d, 0xc4, 0xcd, 0x38, 0x88, 0x06, 0xba, 0x42, 0x69, 0xb4,
-	0x0b, 0x83, 0xc7, 0xa7, 0xb4, 0x66, 0xc7, 0x9f, 0x1e, 0x13, 0xba, 0x6a, 0x07, 0x51, 0xae, 0x97,
-	0xa1, 0xe8, 0x1e, 0x38, 0xdc, 0x32, 0xa6, 0x62, 0x8f, 0xd6, 0xb7, 0x6f, 0x8d, 0xf9, 0x0c, 0xc7,
-	0x92, 0xe7, 0x84, 0xf8, 0x47, 0xe2, 0x14, 0xec, 0x37, 0x1a, 0x81, 0xcd, 0xaa, 0x63, 0xd2, 0x3c,
-	0x77, 0xd8, 0xca, 0x65, 0x71, 0x99, 0x6a, 0xe3, 0xc9, 0x61, 0xf4, 0xc9, 0x82, 0xde, 0x65, 0x46,
-	0xb5, 0xb1, 0x63, 0xb4, 0xd1, 0x36, 0xda, 0xe8, 0xb4, 0x6d, 0x64, 0xad, 0xee, 0xed, 0xe4, 0xf5,
-	0xbc, 0x6c, 0xfc, 0xdd, 0x48, 0xbc, 0xac, 0x41, 0x28, 0x84, 0x2e, 0x8f, 0x4f, 0x8b, 0xf3, 0x5c,
-	0x3a, 0xdc, 0xcd, 0x24, 0x5e, 0x5a, 0xef, 0xab, 0xd6, 0x7f, 0xb6, 0xe0, 0xe6, 0x1f, 0x2d, 0x2b,
-	0x2b, 0x68, 0xb5, 0x56, 0xf0, 0xca, 0xbb, 0x90, 0x0b, 0xed, 0xaa, 0x0b, 0xad, 0x74, 0xe7, 0x1b,
-	0xbb, 0xeb, 0xb6, 0xbb, 0x8b, 0x76, 0xa0, 0xbf, 0x4f, 0xd8, 0x8c, 0x33, 0xfc, 0x76, 0x21, 0x47,
-	0xfd, 0xef, 0x9b, 0x72, 0x5f, 0x27, 0x42, 0x95, 0x3a, 0xad, 0xd6, 0xc5, 0x7b, 0x0e, 0xfd, 0xd9,
-	0xff, 0x9e, 0xa9, 0x88, 0xdb, 0x2d, 0xf1, 0x81, 0x4e, 0x9c, 0x6e, 0xff, 0xec, 0xc0, 0x0d, 0x39,
-	0xaf, 0x27, 0xe2, 0x05, 0x42, 0x53, 0x80, 0xe5, 0xfd, 0x47, 0xa1, 0x58, 0x4d, 0xdd, 0x3b, 0x14,
-	0x9a, 0x39, 0x8a, 0x62, 0x58, 0xbb, 0xb8, 0x83, 0xe8, 0xb6, 0x9a, 0xd8, 0x7a, 0x3d, 0x42, 0x23,
-	0x45, 0xd1, 0x3e, 0xac, 0x2b, 0x17, 0x0d, 0xdd, 0x11, 0x99, 0xda, 0x2b, 0x1c, 0xfe, 0x85, 0xa4,
-	0xe8, 0x00, 0x7a, 0x97, 0xe7, 0xf0, 0xbb, 0x24, 0xcd, 0x90, 0x43, 0x23, 0xd5, 0x28, 0xcd, 0x0c,
-	0x4a, 0x33, 0xb3, 0x92, 0xc6, 0xf8, 0x49, 0xef, 0xcb, 0xf7, 0x2d, 0xeb, 0x2b, 0xfb, 0xbe, 0xb1,
-	0xef, 0xc3, 0x8f, 0xad, 0x6b, 0x2f, 0xbd, 0xe6, 0xe9, 0x7f, 0xf0, 0x2b, 0x00, 0x00, 0xff, 0xff,
-	0x3b, 0xea, 0x11, 0x02, 0x13, 0x06, 0x00, 0x00,
+	// 696 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xac, 0x56, 0xdd, 0x4e, 0xd4, 0x40,
+	0x14, 0xb6, 0xec, 0x6e, 0x77, 0xf7, 0x00, 0x06, 0x07, 0x58, 0x6a, 0x45, 0x62, 0x7a, 0x45, 0x62,
+	0xe4, 0x02, 0x9f, 0xa0, 0xfc, 0x2c, 0x18, 0xff, 0xb0, 0x5d, 0xbc, 0xf1, 0xc2, 0x8c, 0xdb, 0x59,
+	0xdc, 0x50, 0xdb, 0xda, 0x29, 0x10, 0xde, 0xc4, 0x0b, 0xef, 0x4d, 0x7c, 0x0f, 0x13, 0x2f, 0x7d,
+	0x04, 0xa3, 0x6f, 0xe0, 0x13, 0x38, 0x7f, 0x40, 0xbb, 0xcc, 0x34, 0x11, 0xf7, 0x62, 0x13, 0xce,
+	0xf9, 0x4e, 0xbf, 0xf3, 0x9d, 0x33, 0x67, 0xce, 0x00, 0xcb, 0xef, 0x71, 0x12, 0xc5, 0x24, 0x7f,
+	0xfb, 0x01, 0x27, 0xf8, 0x88, 0xe4, 0x1b, 0x59, 0x9e, 0x16, 0x29, 0x6a, 0x0e, 0xd3, 0x9c, 0x78,
+	0x05, 0x2c, 0x1d, 0x66, 0x94, 0xe4, 0xc5, 0xcb, 0x81, 0xef, 0xef, 0xcb, 0xc0, 0x80, 0x7c, 0x44,
+	0x4b, 0xd0, 0x1a, 0xa4, 0xc7, 0x24, 0x71, 0xac, 0x07, 0xd6, 0x7a, 0x37, 0x68, 0x15, 0xdc, 0x40,
+	0x3d, 0xb0, 0xfd, 0x2c, 0xdb, 0x3d, 0x7c, 0xe2, 0xcc, 0x30, 0xf7, 0x5c, 0x60, 0x63, 0x61, 0x71,
+	0xff, 0x0e, 0x39, 0xe5, 0xfe, 0x86, 0xf4, 0x47, 0xc2, 0x52, 0xf1, 0x4f, 0xc9, 0xb9, 0xd3, 0xbc,
+	0x8c, 0x67, 0x96, 0xd7, 0xd3, 0x66, 0xa5, 0xde, 0x17, 0x0b, 0x16, 0x25, 0xe0, 0x6f, 0x1d, 0xdc,
+	0x58, 0x8d, 0x03, 0x6d, 0xa6, 0xc6, 0x8f, 0xa2, 0x5c, 0xc9, 0x69, 0x47, 0xd2, 0xe4, 0xc8, 0x8b,
+	0xb3, 0xe3, 0xf0, 0x4a, 0x50, 0x3b, 0x91, 0x26, 0x47, 0x18, 0x97, 0x40, 0x5a, 0x12, 0xc1, 0xd2,
+	0xe4, 0xb9, 0xfb, 0x31, 0x3e, 0xa2, 0x8e, 0xcd, 0xfc, 0xf3, 0x41, 0x6b, 0xc4, 0x0d, 0x6f, 0x59,
+	0x27, 0x94, 0x7a, 0xbb, 0xb0, 0xfc, 0x6c, 0x4c, 0x0b, 0x96, 0x7e, 0x3c, 0x24, 0xf4, 0xa6, 0x15,
+	0x78, 0x89, 0x9e, 0x86, 0xa2, 0x87, 0xd0, 0xe4, 0x2d, 0x63, 0x2c, 0x8d, 0xf5, 0xd9, 0xcd, 0x95,
+	0x0d, 0x7e, 0x86, 0x1b, 0x0a, 0xe7, 0x80, 0xfc, 0x22, 0x68, 0xa6, 0xec, 0x6f, 0xb4, 0x0e, 0x0d,
+	0xa6, 0x8e, 0x51, 0xf3, 0xd8, 0x5e, 0x25, 0x96, 0xf9, 0x55, 0x68, 0x03, 0x6f, 0x1d, 0x78, 0x5f,
+	0x2d, 0x58, 0x98, 0x44, 0xca, 0x6d, 0x9c, 0x31, 0xb6, 0xb1, 0x61, 0x6c, 0x63, 0xb3, 0xda, 0x46,
+	0x56, 0x6a, 0x7f, 0x3b, 0x29, 0x0e, 0x33, 0xd1, 0xdf, 0xf9, 0xc0, 0x1e, 0x09, 0x0b, 0xb9, 0xd0,
+	0xe1, 0xfe, 0x9d, 0xf4, 0x2c, 0x51, 0x1d, 0xee, 0x8c, 0x94, 0x7d, 0xd5, 0xfa, 0x76, 0xb9, 0xf5,
+	0xdf, 0x2c, 0xb8, 0x73, 0xad, 0xe4, 0xd2, 0x08, 0x5a, 0x95, 0x11, 0x9c, 0x7a, 0x15, 0x6a, 0xa0,
+	0x5b, 0xe5, 0x81, 0x2e, 0x55, 0xd7, 0x36, 0x56, 0xd7, 0xa9, 0x56, 0xe7, 0x6d, 0xc3, 0xe2, 0x1e,
+	0x61, 0x67, 0x3c, 0xc2, 0x27, 0xb1, 0x3a, 0xea, 0x7f, 0x9f, 0x94, 0x47, 0x3a, 0x12, 0x5a, 0xd2,
+	0x69, 0x55, 0x2e, 0xde, 0x1b, 0x58, 0x0c, 0xff, 0x37, 0x67, 0x89, 0xbc, 0x51, 0x21, 0xef, 0x43,
+	0x8f, 0x69, 0x39, 0xc0, 0xe7, 0x71, 0x8a, 0xa3, 0xfe, 0x49, 0x32, 0x2c, 0xc6, 0x69, 0x42, 0x6f,
+	0x32, 0xfd, 0x7a, 0x1e, 0x2a, 0x0f, 0x73, 0x98, 0x46, 0x24, 0x57, 0x4c, 0xec, 0x30, 0x85, 0x89,
+	0x56, 0xa1, 0xbb, 0x9d, 0x26, 0xa7, 0xec, 0x42, 0x12, 0x79, 0xd0, 0xdd, 0xa0, 0x3b, 0xbc, 0x70,
+	0x70, 0xf4, 0x35, 0x8e, 0xc7, 0x11, 0x2e, 0x52, 0xb9, 0x13, 0x18, 0x7a, 0x7a, 0xe1, 0xf0, 0x3e,
+	0x5b, 0xd0, 0x0b, 0xa7, 0x20, 0xbc, 0x2c, 0x6f, 0xb6, 0x46, 0xde, 0x5c, 0xad, 0xbc, 0xf9, 0x49,
+	0x79, 0x8e, 0x41, 0x1d, 0xf5, 0x30, 0xac, 0x0c, 0x08, 0x9d, 0x8e, 0x70, 0x45, 0x22, 0x84, 0xb3,
+	0x81, 0xcf, 0xa4, 0xe9, 0xed, 0x99, 0x52, 0x88, 0x19, 0xeb, 0x8f, 0x49, 0x1c, 0x51, 0x95, 0xc3,
+	0x1e, 0x09, 0x8b, 0xa7, 0x16, 0xd5, 0x88, 0x1c, 0x9d, 0xa0, 0x25, 0x2a, 0xe1, 0x0b, 0xf3, 0xfa,
+	0xe4, 0xd1, 0xcd, 0x3f, 0x4d, 0xb8, 0xad, 0x2e, 0xf3, 0x73, 0xf9, 0x3c, 0xa1, 0x1d, 0x80, 0xab,
+	0xc7, 0x01, 0xb9, 0x72, 0x6f, 0xe9, 0x1e, 0x29, 0xd7, 0x8c, 0x51, 0xe4, 0x43, 0xf7, 0x72, 0x41,
+	0xa3, 0xbb, 0xe5, 0xc0, 0xca, 0xd3, 0xe2, 0x1a, 0x21, 0x8a, 0xf6, 0x60, 0xb6, 0xb4, 0x85, 0xd1,
+	0x3d, 0x19, 0xa9, 0xdd, 0xef, 0x6e, 0x0d, 0x48, 0xd1, 0x3e, 0x2c, 0x4c, 0x5e, 0xd2, 0x0b, 0x49,
+	0x9a, 0x0d, 0xe0, 0x1a, 0x21, 0xc1, 0x14, 0x1a, 0x98, 0x42, 0x33, 0x93, 0xa6, 0xf1, 0xe8, 0x95,
+	0x58, 0x1c, 0x93, 0xe7, 0x8a, 0x56, 0x2f, 0x73, 0x6b, 0xa6, 0xca, 0xad, 0x43, 0x05, 0x65, 0x68,
+	0xa6, 0x0c, 0x6b, 0x29, 0xf5, 0x13, 0x8e, 0x06, 0xb0, 0xa4, 0x1b, 0x3f, 0x74, 0x5f, 0x7e, 0x65,
+	0x98, 0x7e, 0xb7, 0x16, 0xa6, 0x5b, 0x0b, 0xdf, 0x7f, 0xad, 0x59, 0x3f, 0xd8, 0xef, 0x27, 0xfb,
+	0x7d, 0xfa, 0xbd, 0x76, 0xeb, 0x9d, 0x2d, 0xfe, 0x27, 0x7a, 0xfc, 0x37, 0x00, 0x00, 0xff, 0xff,
+	0x1d, 0xe5, 0x48, 0xaa, 0x2c, 0x09, 0x00, 0x00,
 }

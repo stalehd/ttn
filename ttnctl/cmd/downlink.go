@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"github.com/TheThingsNetwork/ttn/core"
+	"github.com/TheThingsNetwork/ttn/core/types"
 	"github.com/TheThingsNetwork/ttn/ttnctl/util"
 	"github.com/spf13/cobra"
 )
@@ -28,13 +29,14 @@ formatted as "1h2m" for one hour and two minutes. The default TTL is one hour.`,
 
 		appEUI := util.GetAppEUI(ctx)
 
-		devEUI, err := util.Parse64(args[0])
+		devEUI, err := types.ParseDevEUI(args[0])
 		if err != nil {
 			ctx.Fatalf("Invalid DevEUI: %s", err)
 		}
 
 		var payload []byte
 		if plain, _ := cmd.Flags().GetBool("plain"); plain {
+			ctx.Warn("Sending data as plain text is bad practice. We recommend to transmit data in a binary format.")
 			payload = []byte(args[1])
 		} else {
 			payload, err = util.ParseHEX(args[1], len(args[1]))
@@ -56,6 +58,7 @@ formatted as "1h2m" for one hour and two minutes. The default TTL is one hour.`,
 		defer client.Disconnect()
 
 		token := client.PublishDownlink(appEUI, devEUI, dataDown)
+
 		if token.Wait(); token.Error() != nil {
 			ctx.WithError(token.Error()).Fatal("Could not publish downlink")
 		}

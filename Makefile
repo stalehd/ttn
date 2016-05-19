@@ -1,12 +1,11 @@
 SHELL = bash
 
-GOOS ?= $(shell echo "`go env GOOS`")
-GOARCH ?= $(shell echo "`go env GOARCH`")
-GOEXE ?= $(shell echo "`go env GOEXE`")
+export GOOS=$(or $(word 1,$(subst -, ,${TARGET_PLATFORM})), $(shell echo "`go env GOOS`"))
+export GOARCH=$(or $(word 2,$(subst -, ,${TARGET_PLATFORM})), $(shell echo "`go env GOARCH`"))
+export GOEXE=$(shell echo "`GOOS=$(GOOS) GOARCH=$(GOARCH) go env GOEXE`")
+export CGO_ENABLED=0
 
 GOCMD = go
-
-export CGO_ENABLED=0
 GOBUILD = $(GOCMD) build
 
 GIT_COMMIT = `git rev-parse HEAD 2>/dev/null`
@@ -30,15 +29,21 @@ ttnctlpkg = ttnctl-$(GOOS)-$(GOARCH)
 ttnbin = $(ttnpkg)$(GOEXE)
 ttnctlbin = $(ttnctlpkg)$(GOEXE)
 
-.PHONY: all clean deps test-deps build-deps proto test fmt vet cover build docker package
+.PHONY: all clean deps update-deps test-deps dev-deps proto test fmt vet cover build docker package
 
 all: clean deps build package
 
 deps:
 	$(GOCMD) get -d -v $(DEPS)
 
+update-deps:
+	$(GOCMD) get -u -d -v $(DEPS)
+
 test-deps:
 	$(GOCMD) get -d -v $(TEST_DEPS)
+
+dev-deps:
+	$(GOCMD) get -v github.com/ddollar/forego
 
 proto-deps:
 	$(GOCMD) get -v github.com/gogo/protobuf/protoc-gen-gofast
@@ -75,8 +80,7 @@ clean:
 
 build: $(RELEASE_DIR)/$(ttnbin) $(RELEASE_DIR)/$(ttnctlbin)
 
-docker: GOOS = linux
-docker: GOARCH = amd64
+docker: TARGET_PLATFORM = linux-amd64
 docker: clean $(RELEASE_DIR)/$(ttnbin)
 	docker build -t thethingsnetwork/ttn -f Dockerfile.local .
 
