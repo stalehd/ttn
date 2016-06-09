@@ -114,12 +114,29 @@ func NewClient(ctx log.Interface, id, username, password string, brokers ...stri
 	}
 }
 
+var (
+	// ConnectRetries says how many times the client should retry a failed connection
+	ConnectRetries = 10
+	// ConnectRetryDelay says how long the client should wait between retries
+	ConnectRetryDelay = time.Second
+)
+
 func (c *defaultClient) Connect() error {
 	if c.mqtt.IsConnected() {
 		return nil
 	}
-	if token := c.mqtt.Connect(); token.Wait() && token.Error() != nil {
-		return fmt.Errorf("Could not connect: %s", token.Error())
+	var err error
+	for retries := 0; retries < ConnectRetries; retries++ {
+		token := c.mqtt.Connect()
+		token.Wait()
+		err = token.Error()
+		if err == nil {
+			break
+		}
+		<-time.After(ConnectRetryDelay)
+	}
+	if err != nil {
+		return fmt.Errorf("Could not connect: %s", err)
 	}
 	return nil
 }

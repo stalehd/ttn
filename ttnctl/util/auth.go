@@ -111,7 +111,8 @@ func NewRequestWithAuth(server, method, urlStr string, body io.Reader) (*http.Re
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Authorization", fmt.Sprintf("bearer %s", auth.AccessToken))
+	req.Header.Set("Authorization", fmt.Sprintf("bearer %s", auth.AccessToken))
+	req.Header.Set("Accept", "application/json")
 	return req, nil
 }
 
@@ -152,6 +153,10 @@ func newToken(server, email string, values url.Values) (*Auth, error) {
 	var t token
 	if err := decoder.Decode(&t); err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, errors.New("Incorrect username or password.")
 	}
 
 	if resp.StatusCode != http.StatusOK {
