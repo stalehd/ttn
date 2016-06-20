@@ -121,9 +121,9 @@ func (b component) validateToken(ctx context.Context, token string, appEUI []byt
 		return errors.New(errors.Operational, "The token is not valid or is expired")
 	}
 
-	apps, ok := parsed.Claims["apps"].([]interface{})
+	apps, ok := parsed.Header["apps"].([]interface{})
 	if !ok {
-		return fmt.Errorf("Invalid type of apps claim: %T", parsed.Claims["apps"])
+		return fmt.Errorf("Invalid type of apps claim: %T", parsed.Header["apps"])
 	}
 
 	for _, a := range apps {
