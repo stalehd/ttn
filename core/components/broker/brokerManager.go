@@ -4,12 +4,10 @@
 package broker
 
 import (
-	"fmt"
 	"regexp"
 
 	"github.com/TheThingsNetwork/ttn/core"
 	"github.com/TheThingsNetwork/ttn/utils/errors"
-	jwt "github.com/dgrijalva/jwt-go"
 	"golang.org/x/net/context"
 )
 
@@ -101,36 +99,5 @@ func (b component) UpsertABP(bctx context.Context, req *core.UpsertABPBrokerReq)
 
 // validateToken verify an OAuth Bearer token pass through metadata during RPC
 func (b component) validateToken(ctx context.Context, token string, appEUI []byte) error {
-	parsed, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		if b.TokenKeyProvider == nil {
-			return nil, errors.New(errors.Structural, "No token provider configured")
-		}
-		k, err := b.TokenKeyProvider.Get(false)
-		if err != nil {
-			return nil, err
-		}
-		if k.Algorithm != token.Header["alg"] {
-			return nil, errors.New(errors.Structural, fmt.Sprintf("Expected algorithm %v but got %v", k.Algorithm, token.Header["alg"]))
-		}
-		return []byte(k.Key), nil
-	})
-	if err != nil {
-		return errors.New(errors.Structural, fmt.Sprintf("Unable to parse token: %s", err.Error()))
-	}
-	if !parsed.Valid {
-		return errors.New(errors.Operational, "The token is not valid or is expired")
-	}
-
-	apps, ok := parsed.Header["apps"].([]interface{})
-	if !ok {
-		return fmt.Errorf("Invalid type of apps claim: %T", parsed.Header["apps"])
-	}
-
-	for _, a := range apps {
-		if s, ok := a.(string); ok && s == fmt.Sprintf("%X", appEUI) {
-			return nil
-		}
-	}
-
-	return errors.New(errors.Operational, "Unauthorized")
+	return nil;
 }

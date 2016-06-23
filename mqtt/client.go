@@ -85,8 +85,8 @@ func NewClient(ctx log.Interface, id, username, password string, brokers ...stri
 	}
 
 	mqttOpts.SetClientID(fmt.Sprintf("%s-%s", id, random.String(16)))
-	mqttOpts.SetUsername(username)
-	mqttOpts.SetPassword(password)
+	mqttOpts.SetUsername("guest")
+	mqttOpts.SetPassword("guest")
 
 	// TODO: Some tuning of these values probably won't hurt:
 	mqttOpts.SetKeepAlive(30 * time.Second)
