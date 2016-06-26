@@ -1,1 +1,1 @@
-release/ttn-darwin-amd64 broker --account-server http://localhost:5000
+release/ttn-darwin-amd64 broker --account-server http://localhost:8080

@@ -6,8 +6,11 @@ import (
     "net/http"
     "encoding/json"
     "encoding/hex"
+    "io/ioutil"
+    "os"
 )
 
+// OAuthToken contains a mock token.
 type OAuthToken struct {
     GrantType    string  `json:grant_type`
     AccessToken  string  `json:access_token`
@@ -36,14 +39,14 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, string(jsonBytes))
 }
 
-
+// ApplicationEntry contains the application meta-data.
 type ApplicationEntry struct {
+    eui        []byte
     EUI        string
     Name       string
     Owner      string
     AccessKeys []string
     Valid      bool
-    AppKey     string
 }
 
 var applications []ApplicationEntry
@@ -52,30 +55,32 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "Hello, hello!")
 }
 
-func genRandHex(len int) string {
+func genRandHex(len int) []byte {
     bytes := make([]byte, len)
     _, err := rand.Read(bytes)
     if (err != nil) {
         fmt.Printf("Error generating random number: %s\n", err)
-        return ""
+        return nil
     }
-    return hex.EncodeToString(bytes)
+    return bytes
 }
 
 func (app *ApplicationEntry) GenerateEUI() {
     //TODO: Ensure this is unique
-    app.EUI = genRandHex(8)
-}
-
-func (app *ApplicationEntry) GenerateAppKey() {
-    app.AppKey = genRandHex(16)
+    app.eui = genRandHex(8)
+    app.EUI = hex.EncodeToString(app.eui)
 }
 
 func (app *ApplicationEntry) GenerateAccessKey() {
-    app.AccessKeys = append(app.AccessKeys, genRandHex(32))
+    newAccessKey := hex.EncodeToString(genRandHex(16))
+    app.AccessKeys = append(app.AccessKeys, newAccessKey)
 }
 
+const handlerEndpoint = "localhost:1882"
+
 func applicationsHandler(w http.ResponseWriter, r *http.Request) {
+    statusCode := http.StatusOK
+
     if (r.Method == "POST") {
         r.ParseForm()
         name := r.Form["name"]
@@ -84,20 +89,50 @@ func applicationsHandler(w http.ResponseWriter, r *http.Request) {
             Owner: "lora@telenordigital.com",
             Valid: true }
         app.GenerateEUI()
-        app.GenerateAppKey()
         app.GenerateAccessKey()
         applications = append(applications, app)
+        statusCode = http.StatusCreated
+        writeApplicationsFile()
     }
     jsonBytes, err := json.Marshal(applications)
     if (err != nil) {
         fmt.Fprintf(w, "Error getting apps: %s\n", err)
     }
+    w.WriteHeader(statusCode)
     fmt.Fprintf(w, string(jsonBytes))
 }
 
+// FILENAME contains the name (and path) of the file used to persist the
+// application data.
+const FILENAME = "applications.json"
+
+func readApplicationsFile() {
+    bytes, err := ioutil.ReadFile(FILENAME)
+    if err != nil {
+        fmt.Println("Got error reading",FILENAME,":", err)
+        return
+    }
+    err = json.Unmarshal(bytes, &applications)
+    if err != nil {
+        fmt.Println("Got error unmarshalling json:",err)
+        return
+    }
+}
+
+func writeApplicationsFile() {
+    bytes, err := json.Marshal(applications)
+    if err != nil {
+        fmt.Println("Couldn't marshal JSON:", err)
+        return
+    }
+    ioutil.WriteFile(FILENAME, bytes, os.ModeAppend|0700)
+}
+
+// PORT is the port that the mockend server will listen to.
 const PORT = 8080
 
 func main() {
+    readApplicationsFile()
 
     fmt.Printf("TTN Mockend Server @ port %d\n", PORT)
 

@@ -1,0 +1,11 @@
+[
+    {
+        "EUI":"d447c595881702aa",
+        "Name":"The TTN Private Application",
+        "Owner":"lora@telenordigital.com",
+        "AccessKeys":[
+            "df85a47411aba87e33a0faa3b13d6d19"
+        ],
+        "Valid":true
+    }
+]
