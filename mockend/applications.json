@@ -1,11 +1,1 @@
-[
-    {
-        "EUI":"d447c595881702aa",
-        "Name":"The TTN Private Application",
-        "Owner":"lora@telenordigital.com",
-        "AccessKeys":[
-            "df85a47411aba87e33a0faa3b13d6d19"
-        ],
-        "Valid":true
-    }
-]
+[{"EUI":"d447c595881702aa","Name":"The TTN Private Application","Owner":"lora@telenordigital.com","AccessKeys":["df85a47411aba87e33a0faa3b13d6d19"],"Valid":true},{"EUI":"413499754c6df40a","Name":"TheNewOne","Owner":"lora@telenordigital.com","AccessKeys":["d60b13f5f0b982f48de283a577c0065d"],"Valid":true},{"EUI":"beafadc2a4a1187c","Name":"YetAnother","Owner":"lora@telenordigital.com","AccessKeys":["1be11f1c8f346c529239d7ed205e5507"],"Valid":true}]

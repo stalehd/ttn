@@ -1,1 +1,1 @@
-release/ttn-darwin-amd64 broker --account-server http://localhost:8080
+DEBUG=1 release/ttn-darwin-amd64 broker --config=ttn.yaml

@@ -1,0 +1,8 @@
+app-eui: BEAFADC2A4A1187C
+debug: true
+mqtt-broker: localhost:1883
+mqtt-password: guest
+mqtt-username: guest
+ttn-account-server: http://localhost:8080
+ttn-handler: localhost:1782
+ttn-router: localhost:1700
